@@ -1,44 +1,62 @@
-# settled
+# Settled
 
 Settled is a simple app to settle up group bills with your friends.
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+## Stack
 
-## Creating a project
+- Frontend: SvelteKit
+- UI: shadcn-svelte
+- Backend: Go
+- Database: PostgreSQL
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Repository Layout
 
-```sh
-# create a new project
-npx sv create my-app
-```
+- `./`: SvelteKit frontend app and shared project configuration
+- `server/`: Go backend module
+- `docs/`: project dev docs
 
-To recreate this project with the same configuration:
+## Prerequisites
 
-```sh
-# recreate this project
-pnpm dlx sv create --template minimal --types ts --add tailwindcss="plugins:none" --install pnpm settled
-```
+- `pnpm`
+- Go
+- PostgreSQL
 
-## Developing
+## Local Configuration
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Database tooling has not been added yet, but local development should use PostgreSQL. Future backend work should expect database connection settings to come from environment variables.
 
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
+Common local variables:
 
 ```sh
-npm run build
+DATABASE_URL=postgres://settled:settled@localhost:5432/settled?sslmode=disable
 ```
 
-You can preview the production build with `npm run preview`.
+Keep secrets out of committed files. Use a local shell profile, ignored `.env` file, or process manager configuration when those settings become active.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+## Frontend Development
+
+Run these from the repository root.
+
+```sh
+pnpm dev
+pnpm check
+pnpm build
+pnpm preview
+```
+
+- `pnpm dev` starts the Vite development server.
+- `pnpm check` runs SvelteKit sync and Svelte type checking.
+- `pnpm build` creates a production build.
+- `pnpm preview` serves the production build locally after building.
+
+## Backend Development
+
+Run backend commands from `server/`.
+
+```sh
+cd server
+go test ./...
+go run ./cmd/server
+```
+
+The backend currently contains the Go module baseline. Until Go packages are added, `go test ./...` may report that there are no packages to test.
