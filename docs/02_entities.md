@@ -533,6 +533,8 @@ The following rules require cross-row checks, aggregate checks, or workflow cont
 - A removed member cannot create, edit, or participate in new expenses or repayments.
 - Only the active group owner from `groups.owner_user_id` can rename, dissolve, remove members, or view/rotate join codes.
 - The current owner cannot be removed from their group.
+- A member cannot be removed while any current non-deleted expense or repayment uses that member as payer, split participant, repayment sender, or repayment recipient.
+- Because removed members cannot participate in settlement-affecting fields, ordinary settlement results should only reference active members.
 - Expense split totals equal the expense amount.
 - Percentage split inputs total 100 percent before cent conversion.
 - Expense and repayment edits replace the current values without creating historical versions.

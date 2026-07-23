@@ -20,7 +20,7 @@ The product should feel clear, calm, and practical. It should prioritize correct
 
 - Email and password registration.
 - Email and password login.
-- JWT-based authentication.
+- Secure HttpOnly cookie session authentication with CSRF protection.
 - Stateless backend authentication suitable for containerized horizontal scaling.
 - Group creation.
 - Joining a group by unique group code.
@@ -290,13 +290,14 @@ Use simple JSON over HTTP.
 - `POST /api/auth/login`
 - `GET /api/me`
 
-Login and register should return a JWT and the current user shape.
+Login and register should set an HttpOnly session cookie, rotate the CSRF token,
+and return the current user shape.
 
 Example response:
 
 ```json
 {
-  "token": "jwt",
+  "csrfToken": "new_csrf_token",
   "user": {
     "id": "user_id",
     "email": "alice@example.com",
@@ -318,7 +319,7 @@ Example response:
 
 Authorization:
 
-- All group routes require JWT authentication.
+- All group routes require authenticated session cookies.
 - A user must be an active member to read group data.
 - Owner-only routes must verify the active membership role.
 
@@ -327,7 +328,7 @@ Authorization:
 - `GET /api/groups/{groupID}/expenses`
 - `POST /api/groups/{groupID}/expenses`
 - `GET /api/groups/{groupID}/expenses/{expenseID}`
-- `PATCH /api/groups/{groupID}/expenses/{expenseID}`
+- `PUT /api/groups/{groupID}/expenses/{expenseID}`
 - `DELETE /api/groups/{groupID}/expenses/{expenseID}`
 
 Authorization:
@@ -339,7 +340,7 @@ Authorization:
 
 - `GET /api/groups/{groupID}/repayments`
 - `POST /api/groups/{groupID}/repayments`
-- `PATCH /api/groups/{groupID}/repayments/{repaymentID}`
+- `PUT /api/groups/{groupID}/repayments/{repaymentID}`
 - `DELETE /api/groups/{groupID}/repayments/{repaymentID}`
 
 Authorization:
@@ -423,7 +424,8 @@ Important boundary validations:
 
 - Email is required and unique.
 - Password meets a small minimum length.
-- JWT is present and valid for protected routes.
+- The authenticated session cookie is present and valid for protected routes.
+- Unsafe requests include a valid CSRF token bound to the browser/session.
 - Group join code exists.
 - User is an active member before accessing group data.
 - Owner-only actions check owner role.
@@ -443,7 +445,7 @@ Important boundary validations:
 3. Add basic configuration loading.
 4. Establish PostgreSQL connection.
 5. Add initial database schema or migration approach.
-6. Add password hashing and JWT utilities.
+6. Add password hashing, session cookie signing, and CSRF token utilities.
 
 ### Phase 2: Authentication
 
@@ -452,7 +454,7 @@ Important boundary validations:
 3. Implement auth middleware.
 4. Implement `GET /api/me`.
 5. Add frontend login and register flows.
-6. Store JWT client-side in a deliberate way and attach it to API requests.
+6. Use credentialed frontend requests and attach CSRF tokens to unsafe requests.
 
 ### Phase 3: Groups And Membership
 
@@ -512,8 +514,8 @@ Quality gates after code changes:
 
 These should be resolved before or during implementation:
 
-- Exact JWT storage strategy in the browser.
-- Token expiry duration and refresh behavior.
+- Session cookie expiry duration and refresh behavior.
+- CSRF token rotation and expiry behavior.
 - Whether dissolved groups are hidden or shown read-only.
 - Whether deleted expenses and repayments are hard-deleted or soft-deleted.
 - Whether group owners can transfer ownership.
