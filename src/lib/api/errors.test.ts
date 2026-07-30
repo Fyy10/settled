@@ -5,6 +5,9 @@ import {
 	apiFieldMap,
 	classifyApiError,
 	invalidResponseError,
+	isConflictApiError,
+	isCsrfApiError,
+	isForbiddenApiError,
 	isNotFoundApiError,
 	mapApiFieldErrors,
 	networkError
@@ -46,6 +49,37 @@ describe('ApiError', () => {
 		).toBe(true);
 		expect(isNotFoundApiError(invalidResponseError(404))).toBe(true);
 		expect(isNotFoundApiError(new Error('Not found.'))).toBe(false);
+	});
+
+	it('recognizes forbidden and conflict HTTP responses by status', () => {
+		const forbidden = new ApiError({
+			status: 403,
+			code: 'forbidden',
+			message: 'Forbidden.',
+			fields: {}
+		});
+		const conflict = new ApiError({
+			status: 409,
+			code: 'conflict',
+			message: 'Conflict.',
+			fields: {}
+		});
+
+		expect(isForbiddenApiError(forbidden)).toBe(true);
+		expect(
+			isForbiddenApiError(
+				new ApiError({
+					status: 403,
+					code: 'csrf_invalid',
+					message: 'Invalid CSRF token.',
+					fields: {}
+				})
+			)
+		).toBe(true);
+		expect(isCsrfApiError(forbidden)).toBe(false);
+		expect(isConflictApiError(conflict)).toBe(true);
+		expect(isForbiddenApiError(conflict)).toBe(false);
+		expect(isConflictApiError(new Error('Conflict.'))).toBe(false);
 	});
 
 	it('retains stable details without sharing the mutable field input', () => {

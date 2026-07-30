@@ -5,6 +5,9 @@
 
 	import { listExpenses } from "$lib/api/expenses";
 	import {
+		ApiError,
+		isCsrfApiError,
+		isForbiddenApiError,
 		isNotFoundApiError,
 		isUnauthorizedApiError
 	} from "$lib/api/errors";
@@ -19,6 +22,7 @@
 	import BalancesPanel from "$lib/components/groups/balances-panel.svelte";
 	import GroupWorkspaceHeader from "$lib/components/groups/group-workspace-header.svelte";
 	import MembersPanel from "$lib/components/groups/members-panel.svelte";
+	import type { MemberNotFoundResolution } from "$lib/components/groups/member-removal";
 	import { Separator } from "$lib/components/ui/separator";
 	import * as Tabs from "$lib/components/ui/tabs";
 	import { copy } from "$lib/copy/en";
@@ -51,6 +55,7 @@
 		status: 'loading',
 		response: null
 	});
+	let memberRefreshWarning = $state(false);
 
 	let expenseController: AbortController | null = null;
 	let repaymentController: AbortController | null = null;
@@ -100,7 +105,7 @@
 		void refreshSettlements(groupId);
 	}
 
-	async function refreshExpenses(groupId = groupDetail.groupId): Promise<void> {
+	async function refreshExpenses(groupId = groupDetail.groupId): Promise<boolean> {
 		expenseController?.abort();
 		const controller = new AbortController();
 		expenseController = controller;
@@ -112,22 +117,26 @@
 			});
 			if (isCurrentRequest(controller, expenseController, groupId)) {
 				expenseState = { status: 'ready', response };
+				return true;
 			}
 		} catch (error) {
 			if (!isCurrentRequest(controller, expenseController, groupId)) {
-				return;
+				return false;
 			}
 			handlePanelError(error, () => {
 				expenseState = { status: 'error', response: null };
 			});
+			return false;
 		} finally {
 			if (expenseController === controller) {
 				expenseController = null;
 			}
 		}
+
+		return false;
 	}
 
-	async function refreshRepayments(groupId = groupDetail.groupId): Promise<void> {
+	async function refreshRepayments(groupId = groupDetail.groupId): Promise<boolean> {
 		repaymentController?.abort();
 		const controller = new AbortController();
 		repaymentController = controller;
@@ -139,22 +148,26 @@
 			});
 			if (isCurrentRequest(controller, repaymentController, groupId)) {
 				repaymentState = { status: 'ready', response };
+				return true;
 			}
 		} catch (error) {
 			if (!isCurrentRequest(controller, repaymentController, groupId)) {
-				return;
+				return false;
 			}
 			handlePanelError(error, () => {
 				repaymentState = { status: 'error', response: null };
 			});
+			return false;
 		} finally {
 			if (repaymentController === controller) {
 				repaymentController = null;
 			}
 		}
+
+		return false;
 	}
 
-	async function refreshSettlements(groupId = groupDetail.groupId): Promise<void> {
+	async function refreshSettlements(groupId = groupDetail.groupId): Promise<boolean> {
 		settlementController?.abort();
 		const controller = new AbortController();
 		settlementController = controller;
@@ -166,18 +179,79 @@
 			});
 			if (isCurrentRequest(controller, settlementController, groupId)) {
 				settlementState = { status: 'ready', response };
+				return true;
 			}
 		} catch (error) {
 			if (!isCurrentRequest(controller, settlementController, groupId)) {
-				return;
+				return false;
 			}
 			handlePanelError(error, () => {
 				settlementState = { status: 'error', response: null };
 			});
+			return false;
 		} finally {
 			if (settlementController === controller) {
 				settlementController = null;
 			}
+		}
+
+		return false;
+	}
+
+	async function handleMemberRemoved(): Promise<void> {
+		memberRefreshWarning = false;
+		const results = await Promise.allSettled([
+			groupDetail.refreshDetail(),
+			refreshExpenses(),
+			refreshRepayments(),
+			refreshSettlements()
+		]);
+		const [detailResult, ...panelResults] = results;
+		const refreshed =
+			detailResult.status === 'fulfilled' &&
+			panelResults.every(
+				(result) => result.status === 'fulfilled' && result.value === true
+			);
+
+		if (!refreshed && groupDetail.status === 'ready') {
+			memberRefreshWarning = true;
+		}
+	}
+
+	async function handleMemberNotFound(
+		userId: string
+	): Promise<MemberNotFoundResolution> {
+		try {
+			const detail = await groupDetail.refreshDetail();
+			if (detail.group.currentUserRole !== 'owner') {
+				return 'handled';
+			}
+
+			return detail.members.some((member) => member.userId === userId)
+				? 'unresolved'
+				: 'removed';
+		} catch {
+			return groupDetail.status === 'hidden' ||
+				groupDetail.status === 'loading'
+				? 'handled'
+				: 'unresolved';
+		}
+	}
+
+	async function handleMemberProtectedError(error: ApiError): Promise<boolean> {
+		if (isUnauthorizedApiError(error)) {
+			groupDetail.clear();
+			return true;
+		}
+		if (!isForbiddenApiError(error) || isCsrfApiError(error)) {
+			return false;
+		}
+
+		try {
+			const detail = await groupDetail.refreshDetail();
+			return detail.group.currentUserRole !== 'owner';
+		} catch {
+			return groupDetail.status === 'hidden' || groupDetail.status === 'loading';
 		}
 	}
 
@@ -288,7 +362,15 @@
 			</Tabs.Content>
 
 			<Tabs.Content value="members" class="min-w-0 pt-4">
-				<MembersPanel members={groupDetail.members} />
+				<MembersPanel
+					members={groupDetail.members}
+					groupId={groupDetail.groupId}
+					canManage={groupDetail.group.currentUserRole === 'owner'}
+					refreshWarning={memberRefreshWarning}
+					onMemberRemoved={handleMemberRemoved}
+					onMemberNotFound={handleMemberNotFound}
+					onProtectedError={handleMemberProtectedError}
+				/>
 			</Tabs.Content>
 		</Tabs.Root>
 	</section>

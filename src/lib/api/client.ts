@@ -13,7 +13,9 @@ export {
 	ApiError,
 	apiFieldMap,
 	classifyApiError,
+	isConflictApiError,
 	isCsrfApiError,
+	isForbiddenApiError,
 	isNotFoundApiError,
 	isNetworkApiError,
 	isUnauthorizedApiError,
@@ -31,6 +33,7 @@ export type RequestOptions = {
 	signal?: AbortSignal;
 	csrf?: boolean;
 	retryCsrf?: boolean;
+	expectedStatus?: number;
 };
 
 type UnauthorizedListener = (error: ApiError) => void;
@@ -115,7 +118,8 @@ async function sendAttempt<T>(
 		method,
 		body: options.body,
 		signal: options.signal,
-		headers
+		headers,
+		expectedStatus: options.expectedStatus
 	})) as T;
 }
 

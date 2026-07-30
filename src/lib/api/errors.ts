@@ -40,6 +40,14 @@ export function isNotFoundApiError(error: unknown): error is ApiError {
 	return error instanceof ApiError && error.status === 404;
 }
 
+export function isForbiddenApiError(error: unknown): error is ApiError {
+	return error instanceof ApiError && error.status === 403;
+}
+
+export function isConflictApiError(error: unknown): error is ApiError {
+	return error instanceof ApiError && error.status === 409;
+}
+
 export function isCsrfApiError(error: unknown): error is ApiError {
 	return (
 		error instanceof ApiError &&

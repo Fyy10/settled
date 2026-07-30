@@ -5,7 +5,6 @@
 	import { onMount } from "svelte";
 	import { toast } from "svelte-sonner";
 
-	import { listGroups } from "$lib/api/groups";
 	import { isUnauthorizedApiError } from "$lib/api/errors";
 	import type { GroupSummary } from "$lib/api/types";
 	import CreateGroupDialog from "$lib/components/groups/create-group-dialog.svelte";
@@ -19,44 +18,21 @@
 	import { Skeleton } from "$lib/components/ui/skeleton";
 	import { Spinner } from "$lib/components/ui/spinner";
 	import { copy } from "$lib/copy/en";
+	import { useGroupListContext } from "$lib/state/group-list.svelte";
 	import { pageTitle } from "$lib/utils/page-title";
 
-	type ListState = 'loading' | 'ready' | 'error';
-
-	let listState = $state<ListState>('loading');
-	let groups = $state<GroupSummary[]>([]);
-	let currentController: AbortController | null = null;
+	const groupList = useGroupListContext();
 
 	onMount(() => {
 		void refreshGroups();
-
-		return () => {
-			currentController?.abort();
-		};
 	});
 
 	async function refreshGroups({ preserve = false } = {}): Promise<void> {
-		currentController?.abort();
-		const controller = new AbortController();
-		currentController = controller;
-
-		if (!preserve) {
-			listState = 'loading';
-		}
-
 		try {
-			groups = await listGroups({ signal: controller.signal });
-			listState = 'ready';
+			await groupList.refresh({ preserve });
 		} catch (error) {
-			if (controller.signal.aborted || isUnauthorizedApiError(error)) {
+			if (isUnauthorizedApiError(error)) {
 				return;
-			}
-			if (!preserve) {
-				listState = 'error';
-			}
-		} finally {
-			if (currentController === controller) {
-				currentController = null;
 			}
 		}
 	}
@@ -85,7 +61,7 @@
 			<p class="text-muted-foreground">{copy.routes.groups.description}</p>
 		</div>
 
-		{#if listState !== 'ready' || groups.length > 0}
+		{#if groupList.status !== 'ready' || groupList.groups.length > 0}
 			<div class="flex flex-wrap gap-2">
 				<CreateGroupDialog onSuccess={handleCreated} />
 				<JoinGroupDialog onSuccess={handleJoined} />
@@ -95,7 +71,7 @@
 
 	<Separator />
 
-	{#if listState === 'loading'}
+	{#if groupList.status === 'idle' || groupList.status === 'loading'}
 		<div class="flex flex-col gap-4">
 			<div class="flex items-center gap-3" aria-live="polite">
 				<Spinner aria-label={copy.groups.loading} />
@@ -117,7 +93,7 @@
 				{/each}
 			</div>
 		</div>
-	{:else if listState === 'error'}
+	{:else if groupList.status === 'error'}
 		<div class="flex max-w-xl flex-col gap-4">
 			<Alert.Root variant="destructive">
 				<CircleAlertIcon data-icon="inline-start" />
@@ -128,7 +104,7 @@
 				{copy.groups.retry}
 			</Button>
 		</div>
-	{:else if groups.length === 0}
+	{:else if groupList.groups.length === 0}
 		<Empty.Root class="min-h-72 border">
 			<Empty.Header>
 				<Empty.Media variant="icon">
@@ -146,7 +122,7 @@
 		</Empty.Root>
 	{:else}
 		<div class="grid gap-4 md:grid-cols-2">
-			{#each groups as group (group.id)}
+			{#each groupList.groups as group (group.id)}
 				<GroupCard {group} />
 			{/each}
 		</div>

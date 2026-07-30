@@ -73,6 +73,23 @@ describe('credentialed API transport', () => {
 		await expect(request<void>('/api/health/live')).resolves.toBeUndefined();
 	});
 
+	it('rejects an unexpected success status with the actual status and request ID', async () => {
+		fetchMock.mockResolvedValue(
+			jsonResponse({ group: { id: 'group-one' } }, 201, {
+				'X-Request-ID': 'request-status'
+			})
+		);
+
+		await expect(
+			request('/api/groups/group-one', { expectedStatus: 200 })
+		).rejects.toMatchObject({
+			status: 201,
+			code: 'invalid_response',
+			requestId: 'request-status',
+			source: 'invalid-response'
+		});
+	});
+
 	it.each([
 		['a non-JSON success', new Response('ok', { status: 200 })],
 		[

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Snippet } from "svelte";
+
 	import type { GroupMember } from "$lib/api/types";
 	import { Badge } from "$lib/components/ui/badge";
 	import { copy } from "$lib/copy/en";
@@ -6,7 +8,13 @@
 
 	import MemberAvatar from "./member-avatar.svelte";
 
-	let { member }: { member: GroupMember } = $props();
+	let {
+		member,
+		actions
+	}: {
+		member: GroupMember;
+		actions?: Snippet;
+	} = $props();
 </script>
 
 <div class="flex min-w-0 items-start gap-3 py-4">
@@ -24,4 +32,9 @@
 			{formatMemberJoinedAt(member.joinedAt)}
 		</span>
 	</div>
+	{#if actions}
+		<div class="shrink-0">
+			{@render actions()}
+		</div>
+	{/if}
 </div>

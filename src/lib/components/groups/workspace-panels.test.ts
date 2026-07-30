@@ -9,6 +9,10 @@ import {
 import BalancesPanel from './balances-panel.svelte';
 import MembersPanel from './members-panel.svelte';
 
+vi.mock('$lib/config/public', () => ({
+	API_BASE_URL: 'http://localhost:8080'
+}));
+
 describe('balances panel', () => {
 	it('renders settlement rows in the exact order returned by the API', () => {
 		const secondSettlement = {
@@ -73,5 +77,32 @@ describe('members panel', () => {
 		expect(rows[1]).toHaveTextContent('Alice');
 		expect(within(rows[0]).getByText('李雷')).toBeInTheDocument();
 		expect(screen.getByText('Owner')).toBeInTheDocument();
+	});
+
+	it('shows removal only to owners and never for the owner row', () => {
+		const member = groupDetailFixture.members[1];
+		const memberView = render(MembersPanel, {
+			members: groupDetailFixture.members,
+			groupId: groupDetailFixture.group.id,
+			canManage: false
+		});
+		expect(
+			screen.queryByRole('button', { name: `Remove member ${member.displayName}` })
+		).not.toBeInTheDocument();
+		memberView.unmount();
+
+		render(MembersPanel, {
+			members: groupDetailFixture.members,
+			groupId: groupDetailFixture.group.id,
+			canManage: true
+		});
+		expect(
+			screen.getByRole('button', { name: `Remove member ${member.displayName}` })
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole('button', {
+				name: `Remove member ${groupDetailFixture.members[0].displayName}`
+			})
+		).not.toBeInTheDocument();
 	});
 });

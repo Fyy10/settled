@@ -10,6 +10,7 @@ export type ApiTransportOptions = {
 	body?: unknown;
 	signal?: AbortSignal;
 	headers?: HeadersInit;
+	expectedStatus?: number;
 };
 
 export async function sendApiRequest(
@@ -59,6 +60,17 @@ export async function sendApiRequest(
 
 	if (!response.ok) {
 		throw await responseApiError(response, requestId);
+	}
+
+	if (
+		options.expectedStatus !== undefined &&
+		response.status !== options.expectedStatus
+	) {
+		throw invalidResponseError(
+			response.status,
+			requestId,
+			`The server returned HTTP ${response.status}; expected HTTP ${options.expectedStatus}.`
+		);
 	}
 
 	if (response.status === 204) {

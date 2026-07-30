@@ -150,7 +150,68 @@ export const copy = {
 				description: 'People with access to this shared ledger.',
 				emptyTitle: 'No members available',
 				emptyDescription: 'Member information could not be shown.',
-				joined: 'Joined'
+				joined: 'Joined',
+				remove: 'Remove member',
+				removeTitle: 'Remove member?',
+				removeDescription: 'They will lose access to this group and its history.',
+				removeCancel: 'Cancel',
+				removeSubmit: 'Remove member',
+				removePending: 'Removing member',
+				removeConflict:
+					'This member is used by a current expense or payment record. Update or delete those records before removing them.',
+				removeFailure: 'Settled could not remove this member. Try again.',
+				removeRefreshFailure:
+					'The member was removed, but some group information could not be refreshed.',
+				removed: 'Member removed'
+			}
+		},
+		settings: {
+			backToGroup: 'Back to group',
+			title: 'Group settings',
+			description: 'Manage this private ledger and who can access it.',
+			redirecting: 'Returning to the group',
+			redirectFailure: 'Settled could not return to the group automatically.',
+			name: {
+				title: 'Group name',
+				description: 'Use a name everyone in the group will recognize.',
+				label: 'Group name',
+				submit: 'Save changes',
+				pending: 'Saving changes',
+				success: 'Changes saved',
+				failure: 'Settled could not save the group name. Check it and try again.',
+				refreshFailure:
+					'Changes were saved, but some group information could not be refreshed.'
+			},
+			code: {
+				title: 'Group code',
+				description:
+					'Anyone with this code can join the group. Share it only with people you trust.',
+				loading: 'Loading group code',
+				loadFailure: 'Settled could not load the group code.',
+				retry: 'Retry',
+				copy: 'Copy code',
+				copied: 'Code copied',
+				copyFailure: 'Copy failed. The code is selected so you can copy it manually.'
+			},
+			danger: {
+				title: 'Danger zone',
+				description: 'Dissolving hides the group and stops all new activity.',
+				action: 'Dissolve group',
+				dialogTitle: 'Dissolve this group?',
+				dialogDescription:
+					'The group will disappear from ordinary views and no new activity can be added.',
+				confirmationLabel: 'Type the current group name to confirm',
+				confirmationDescription: 'This confirmation is case-sensitive.',
+				cancel: 'Cancel',
+				submit: 'Dissolve group',
+				pending: 'Dissolving group',
+				success: 'Group dissolved',
+				failure: 'Settled could not dissolve this group. Try again.',
+				refreshFailure:
+					'The group was dissolved, but the group list could not be refreshed before navigation.',
+				navigationFailure:
+					'The group was dissolved, but Settled could not open your groups.',
+				continueToGroups: 'Continue to groups'
 			}
 		}
 	},

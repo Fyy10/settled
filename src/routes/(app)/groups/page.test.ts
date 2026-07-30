@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { networkError } from '$lib/api/errors';
 import type { GroupSummary } from '$lib/api/types';
+import { GroupListContext } from '$lib/state/group-list.svelte';
 import { groupListFixture } from '../../../tests/fixtures/api-contract';
 
 import GroupsPage from './+page.svelte';
@@ -18,7 +19,8 @@ const mocks = vi.hoisted(() => ({
 	listGroups: vi.fn(),
 	createGroup: vi.fn(),
 	joinGroup: vi.fn(),
-	toastSuccess: vi.fn()
+	toastSuccess: vi.fn(),
+	groupList: null as unknown as GroupListContext
 }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
@@ -28,6 +30,14 @@ vi.mock('$lib/api/groups', () => ({
 	joinGroup: mocks.joinGroup
 }));
 vi.mock('$lib/config/public', () => ({ API_BASE_URL: 'http://localhost:8080' }));
+vi.mock('$lib/state/group-list.svelte', async (importOriginal) => {
+	const original =
+		await importOriginal<typeof import('$lib/state/group-list.svelte')>();
+	return {
+		...original,
+		useGroupListContext: () => mocks.groupList
+	};
+});
 vi.mock('svelte-sonner', () => ({
 	toast: { success: mocks.toastSuccess }
 }));
@@ -38,6 +48,7 @@ beforeEach(() => {
 	mocks.createGroup.mockReset();
 	mocks.joinGroup.mockReset();
 	mocks.toastSuccess.mockReset();
+	mocks.groupList = new GroupListContext(mocks.listGroups);
 });
 
 describe('groups page states', () => {

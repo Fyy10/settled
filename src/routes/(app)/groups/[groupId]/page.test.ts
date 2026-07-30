@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import {
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within
+} from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError, networkError } from '$lib/api/errors';
@@ -22,8 +28,10 @@ const mocks = vi.hoisted(() => ({
 		group: null as (typeof groupDetailFixture)['group'] | null,
 		members: [] as (typeof groupDetailFixture)['members'][number][],
 		clear: vi.fn(),
-		markHidden: vi.fn()
+		markHidden: vi.fn(),
+		refreshDetail: vi.fn()
 	},
+	removeGroupMember: vi.fn(),
 	listExpenses: vi.fn(),
 	listRepayments: vi.fn(),
 	listSettlements: vi.fn()
@@ -32,6 +40,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
 vi.mock('$app/state', () => ({ page: mocks.page }));
 vi.mock('$lib/api/expenses', () => ({ listExpenses: mocks.listExpenses }));
+vi.mock('$lib/api/groups', () => ({
+	removeGroupMember: mocks.removeGroupMember
+}));
 vi.mock('$lib/api/repayments', () => ({
 	listRepayments: mocks.listRepayments
 }));
@@ -56,6 +67,8 @@ beforeEach(() => {
 	mocks.context.members = [...groupDetailFixture.members];
 	mocks.context.clear.mockReset();
 	mocks.context.markHidden.mockReset();
+	mocks.context.refreshDetail.mockReset().mockResolvedValue(groupDetailFixture);
+	mocks.removeGroupMember.mockReset().mockResolvedValue(undefined);
 	mocks.listExpenses.mockReset().mockResolvedValue(expenseListFixture);
 	mocks.listRepayments.mockReset().mockResolvedValue(repaymentListFixture);
 	mocks.listSettlements.mockReset().mockResolvedValue(settlementListFixture);
@@ -228,6 +241,139 @@ describe('authoritative balances', () => {
 		).toBeInTheDocument();
 	});
 });
+
+describe('owner member removal revalidation', () => {
+	it('treats detail 200 without the target as a proven concurrent removal', async () => {
+		mocks.page.url = new URL(
+			`https://settled.test/groups/${groupDetailFixture.group.id}?view=members`
+		);
+		mocks.removeGroupMember.mockRejectedValue(notFoundError());
+		const withoutTarget = {
+			...groupDetailFixture,
+			group: { ...groupDetailFixture.group, memberCount: 1 },
+			members: [groupDetailFixture.members[0]]
+		};
+		mocks.context.refreshDetail.mockResolvedValue(withoutTarget);
+		render(GroupPage);
+		await openBobRemoval();
+
+		await fireEvent.click(
+			within(screen.getByRole('alertdialog')).getByRole('button', {
+				name: 'Remove member'
+			})
+		);
+
+		await waitFor(() =>
+			expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+		);
+		expect(mocks.removeGroupMember).toHaveBeenCalledOnce();
+		expect(mocks.context.refreshDetail).toHaveBeenCalledTimes(2);
+		expect(mocks.listExpenses).toHaveBeenCalledTimes(2);
+		expect(mocks.listRepayments).toHaveBeenCalledTimes(2);
+		expect(mocks.listSettlements).toHaveBeenCalledTimes(2);
+		await waitFor(() =>
+			expect(screen.getByRole('heading', { name: 'Members' })).toHaveFocus()
+		);
+	});
+
+	it('keeps the member and ordinary failure when detail 200 still contains the target', async () => {
+		mocks.page.url = new URL(
+			`https://settled.test/groups/${groupDetailFixture.group.id}?view=members`
+		);
+		mocks.removeGroupMember.mockRejectedValue(notFoundError());
+		mocks.context.refreshDetail.mockResolvedValue(groupDetailFixture);
+		render(GroupPage);
+		await openBobRemoval();
+
+		await fireEvent.click(
+			within(screen.getByRole('alertdialog')).getByRole('button', {
+				name: 'Remove member'
+			})
+		);
+
+		expect(
+			await screen.findByText('Settled could not remove this member. Try again.')
+		).toBeInTheDocument();
+		expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+		expect(mocks.context.refreshDetail).toHaveBeenCalledOnce();
+		expect(mocks.listExpenses).toHaveBeenCalledOnce();
+		expect(mocks.removeGroupMember).toHaveBeenCalledOnce();
+	});
+
+	it('promotes detail 404 to hidden group without retrying member DELETE', async () => {
+		mocks.page.url = new URL(
+			`https://settled.test/groups/${groupDetailFixture.group.id}?view=members`
+		);
+		mocks.removeGroupMember.mockRejectedValue(notFoundError());
+		mocks.context.refreshDetail.mockImplementation(async () => {
+			mocks.context.status = 'hidden';
+			mocks.context.markHidden();
+			throw notFoundError();
+		});
+		render(GroupPage);
+		await openBobRemoval();
+
+		await fireEvent.click(
+			within(screen.getByRole('alertdialog')).getByRole('button', {
+				name: 'Remove member'
+			})
+		);
+
+		await waitFor(() =>
+			expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+		);
+		expect(mocks.context.markHidden).toHaveBeenCalledOnce();
+		expect(mocks.removeGroupMember).toHaveBeenCalledOnce();
+		expect(mocks.listExpenses).toHaveBeenCalledOnce();
+	});
+
+	it('reports only revalidation failure after a committed 204 and disables repeat removal', async () => {
+		mocks.page.url = new URL(
+			`https://settled.test/groups/${groupDetailFixture.group.id}?view=members`
+		);
+		mocks.context.refreshDetail.mockRejectedValue(
+			networkError(new TypeError('Offline'))
+		);
+		mocks.listSettlements
+			.mockResolvedValueOnce(settlementListFixture)
+			.mockRejectedValueOnce(networkError(new TypeError('Offline')));
+		render(GroupPage);
+		await openBobRemoval();
+
+		await fireEvent.click(
+			within(screen.getByRole('alertdialog')).getByRole('button', {
+				name: 'Remove member'
+			})
+		);
+
+		expect(
+			await screen.findByText(
+				'The member was removed, but some group information could not be refreshed.'
+			)
+		).toBeInTheDocument();
+		const trigger = screen.getByRole('button', { name: 'Remove member Bob' });
+		expect(trigger).toBeDisabled();
+		await fireEvent.click(trigger);
+		expect(mocks.removeGroupMember).toHaveBeenCalledOnce();
+	});
+});
+
+async function openBobRemoval(): Promise<void> {
+	const trigger = await screen.findByRole('button', {
+		name: 'Remove member Bob'
+	});
+	await fireEvent.click(trigger);
+	await screen.findByRole('alertdialog');
+}
+
+function notFoundError(): ApiError {
+	return new ApiError({
+		status: 404,
+		code: 'not_found',
+		message: 'Not found.',
+		fields: {}
+	});
+}
 
 function deferred<T = unknown>(): {
 	promise: Promise<T>;

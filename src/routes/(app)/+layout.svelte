@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
-	import { onMount } from "svelte";
+	import { onDestroy, onMount } from "svelte";
 
 	import favicon from "$lib/assets/favicon.svg";
 	import AppHeader from "$lib/components/app/app-header.svelte";
@@ -12,9 +12,14 @@
 	import { Spinner } from "$lib/components/ui/spinner";
 	import { copy } from "$lib/copy/en";
 	import { authState, ensureSession } from "$lib/state/auth.svelte";
+	import {
+		GroupListContext,
+		provideGroupListContext
+	} from "$lib/state/group-list.svelte";
 
 	let { children } = $props();
 
+	const groupList = provideGroupListContext(new GroupListContext());
 	const initialSession = authState.current;
 	let gate = $state<'checking' | 'ready' | 'error'>(
 		initialSession.status === 'authenticated' ? 'ready' : 'checking'
@@ -24,6 +29,7 @@
 	onMount(() => {
 		void verifySession();
 	});
+	onDestroy(() => groupList.dispose());
 
 	async function verifySession(): Promise<void> {
 		if (user === null) {

@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
 vi.mock('$lib/api/auth', () => ({ logout: mocks.logout }));
+vi.mock('$lib/config/public', () => ({ API_BASE_URL: 'http://localhost:8080' }));
 vi.mock('$lib/state/auth.svelte', () => ({
 	authState: mocks.authState,
 	ensureSession: mocks.ensureSession,
