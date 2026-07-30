@@ -5,6 +5,7 @@ import {
 	apiFieldMap,
 	classifyApiError,
 	invalidResponseError,
+	isNotFoundApiError,
 	mapApiFieldErrors,
 	networkError
 } from './errors';
@@ -30,6 +31,21 @@ describe('ApiError', () => {
 		expect(classifyApiError(networkError(new TypeError('Failed to fetch')))).toBe('network');
 		expect(classifyApiError(invalidResponseError(200))).toBe('unknown');
 		expect(classifyApiError(new Error('Unexpected'))).toBe('unknown');
+	});
+
+	it('recognizes only HTTP 404 errors as hidden-resource failures', () => {
+		expect(
+			isNotFoundApiError(
+				new ApiError({
+					status: 404,
+					code: 'not_found',
+					message: 'Not found.',
+					fields: {}
+				})
+			)
+		).toBe(true);
+		expect(isNotFoundApiError(invalidResponseError(404))).toBe(true);
+		expect(isNotFoundApiError(new Error('Not found.'))).toBe(false);
 	});
 
 	it('retains stable details without sharing the mutable field input', () => {

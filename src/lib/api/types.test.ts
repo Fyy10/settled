@@ -114,6 +114,26 @@ describe('API contract fixtures', () => {
 			]
 		};
 		expect(isRepaymentListResponse(missingNullableNote)).toBe(false);
+
+		const shiftedLocalDate: unknown = {
+			...expenseListFixture,
+			expenses: [
+				{
+					...expenseListFixture.expenses[0],
+					expenseDate: '2026-02-30'
+				}
+			]
+		};
+		expect(isExpenseListResponse(shiftedLocalDate)).toBe(false);
+
+		const timestampWithoutTimeZone: unknown = {
+			...groupDetailFixture,
+			group: {
+				...groupDetailFixture.group,
+				createdAt: '2026-06-30T18:00:00'
+			}
+		};
+		expect(isGroupDetailResponse(timestampWithoutTimeZone)).toBe(false);
 	});
 });
 

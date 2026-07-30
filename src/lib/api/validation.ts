@@ -1,3 +1,5 @@
+import { isStrictLocalDate } from '$lib/utils/dates';
+
 import { invalidResponseError } from './errors';
 import type {
 	ApiErrorBody,
@@ -26,6 +28,8 @@ import type {
 
 type JsonObject = Record<string, unknown>;
 type PayloadGuard<T> = (value: unknown) => value is T;
+const rfc3339Pattern =
+	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
 export function isJsonObject(value: unknown): value is JsonObject {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -148,8 +152,8 @@ function isGroupSummary(value: unknown): value is GroupSummary {
 		isNonEmptyString(value.ownerUserId) &&
 		isNonNegativeSafeInteger(value.memberCount) &&
 		(value.currentUserRole === 'owner' || value.currentUserRole === 'member') &&
-		typeof value.createdAt === 'string' &&
-		typeof value.updatedAt === 'string'
+		isTimestamp(value.createdAt) &&
+		isTimestamp(value.updatedAt)
 	);
 }
 
@@ -160,7 +164,7 @@ function isGroupMember(value: unknown): value is GroupMember {
 		typeof value.email === 'string' &&
 		typeof value.displayName === 'string' &&
 		(value.role === 'owner' || value.role === 'member') &&
-		typeof value.joinedAt === 'string'
+		isTimestamp(value.joinedAt)
 	);
 }
 
@@ -190,10 +194,11 @@ function isExpense(value: unknown): value is Expense {
 		isPositiveSafeInteger(value.amountCents) &&
 		value.currency === 'USD' &&
 		typeof value.expenseDate === 'string' &&
+		isStrictLocalDate(value.expenseDate) &&
 		isNonEmptyString(value.createdByUserId) &&
 		isArrayOf(value.splits, isExpenseSplit) &&
-		typeof value.createdAt === 'string' &&
-		typeof value.updatedAt === 'string'
+		isTimestamp(value.createdAt) &&
+		isTimestamp(value.updatedAt)
 	);
 }
 
@@ -208,9 +213,10 @@ function isRepayment(value: unknown): value is Repayment {
 		value.currency === 'USD' &&
 		(value.note === null || typeof value.note === 'string') &&
 		typeof value.repaymentDate === 'string' &&
+		isStrictLocalDate(value.repaymentDate) &&
 		isNonEmptyString(value.createdByUserId) &&
-		typeof value.createdAt === 'string' &&
-		typeof value.updatedAt === 'string'
+		isTimestamp(value.createdAt) &&
+		isTimestamp(value.updatedAt)
 	);
 }
 
@@ -244,4 +250,12 @@ function isNonNegativeSafeInteger(value: unknown): value is number {
 
 function isPositiveSafeInteger(value: unknown): value is number {
 	return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+function isTimestamp(value: unknown): value is string {
+	return (
+		typeof value === 'string' &&
+		rfc3339Pattern.test(value) &&
+		Number.isFinite(Date.parse(value))
+	);
 }

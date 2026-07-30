@@ -1,10 +1,13 @@
 import { request } from './client';
+import { invalidResponseError } from './errors';
 import type {
 	CreateGroupInput,
+	GroupDetailResponse,
 	GroupSummary,
 	JoinGroupInput
 } from './types';
 import {
+	isGroupDetailResponse,
 	isGroupListResponse,
 	isGroupResponse,
 	requireApiPayload
@@ -27,6 +30,31 @@ export async function listGroups(
 	);
 
 	return response.groups;
+}
+
+export async function getGroupDetail(
+	groupId: string,
+	options: GroupRequestOptions = {}
+): Promise<GroupDetailResponse> {
+	const payload = await request<unknown>(
+		`/api/groups/${encodeURIComponent(groupId)}`,
+		{ signal: options.signal }
+	);
+
+	const response = requireApiPayload(
+		payload,
+		isGroupDetailResponse,
+		'group-detail response'
+	);
+	if (response.group.id !== groupId) {
+		throw invalidResponseError(
+			200,
+			undefined,
+			'The server returned group detail for a different group.'
+		);
+	}
+
+	return response;
 }
 
 export async function createGroup(

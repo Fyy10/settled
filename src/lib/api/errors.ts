@@ -36,6 +36,10 @@ export function isUnauthorizedApiError(error: unknown): error is ApiError {
 	return error instanceof ApiError && error.status === 401;
 }
 
+export function isNotFoundApiError(error: unknown): error is ApiError {
+	return error instanceof ApiError && error.status === 404;
+}
+
 export function isCsrfApiError(error: unknown): error is ApiError {
 	return (
 		error instanceof ApiError &&

@@ -98,6 +98,60 @@ export const copy = {
 			invalidCode: 'That group code is not valid.',
 			failure: 'Settled could not join the group. Check the code and try again.',
 			success: 'Group joined'
+		},
+		workspace: {
+			loading: 'Loading group',
+			loadFailureTitle: 'Settled couldn’t load this group.',
+			loadFailureDescription: 'Check your connection and try again.',
+			hiddenTitle: 'This group isn’t available.',
+			hiddenDescription: 'It may have been dissolved or you may no longer have access.',
+			retry: 'Retry',
+			backToGroups: 'Back to groups',
+			groups: 'Groups',
+			owner: 'Owner',
+			addExpense: 'Add expense',
+			recordPayment: 'Record payment',
+			actionsLabel: 'Group accounting actions',
+			openMenu: 'Open group menu',
+			settings: 'Group settings',
+			tabsLabel: 'Group views',
+			balancesTab: 'Balances',
+			activityTab: 'Activity',
+			membersTab: 'Members',
+			unknownMember: 'Unknown member',
+			balances: {
+				title: 'Balances',
+				description: 'Current payment suggestions from the shared ledger.',
+				loading: 'Loading balances',
+				failureTitle: 'Settled couldn’t load balances.',
+				failureDescription: 'Other group information is still available.',
+				emptyTitle: 'All settled',
+				emptyDescription: 'There are no current balances in this group.',
+				shouldPay: 'should pay'
+			},
+			activity: {
+				title: 'Activity',
+				description: 'Expenses and payment records, grouped by date.',
+				loadingExpenses: 'Loading expenses',
+				loadingPayments: 'Loading payment records',
+				expenseFailureTitle: 'Settled couldn’t load expenses.',
+				paymentFailureTitle: 'Settled couldn’t load payment records.',
+				partialFailureDescription: 'Loaded activity remains available below.',
+				emptyTitle: 'No activity yet',
+				emptyDescription: 'Add an expense or record a payment to start this ledger.',
+				paid: 'paid',
+				splitWith: 'Split with',
+				person: 'person',
+				people: 'people',
+				recordedOutside: 'Recorded outside Settled'
+			},
+			members: {
+				title: 'Members',
+				description: 'People with access to this shared ledger.',
+				emptyTitle: 'No members available',
+				emptyDescription: 'Member information could not be shown.',
+				joined: 'Joined'
+			}
 		}
 	},
 	errors: {

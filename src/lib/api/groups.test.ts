@@ -1,8 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { groupListFixture } from '../../tests/fixtures/api-contract';
+import {
+	groupDetailFixture,
+	groupListFixture
+} from '../../tests/fixtures/api-contract';
 import { clearCsrfToken, setCsrfToken } from '../state/csrf';
-import { createGroup, joinGroup, listGroups } from './groups';
+import {
+	createGroup,
+	getGroupDetail,
+	joinGroup,
+	listGroups
+} from './groups';
 
 vi.mock('$lib/config/public', () => ({
 	API_BASE_URL: 'http://localhost:8080'
@@ -39,6 +47,38 @@ describe('group API', () => {
 			})
 		);
 		await expect(listGroups()).rejects.toMatchObject({
+			code: 'invalid_response'
+		});
+	});
+
+	it('loads one group detail with its stable member array', async () => {
+		const controller = new AbortController();
+		const encodedGroupFixture = {
+			...groupDetailFixture,
+			group: { ...groupDetailFixture.group, id: 'group/id' }
+		};
+		fetchMock.mockResolvedValue(jsonResponse(encodedGroupFixture));
+
+		await expect(
+			getGroupDetail('group/id', { signal: controller.signal })
+		).resolves.toEqual(encodedGroupFixture);
+		expect(String(fetchMock.mock.calls[0][0])).toMatch(
+			/\/api\/groups\/group%2Fid$/
+		);
+		expect(fetchMock.mock.calls[0][1]).toMatchObject({
+			method: 'GET',
+			signal: controller.signal
+		});
+
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse({ ...groupDetailFixture, members: null })
+		);
+		await expect(getGroupDetail(groupDetailFixture.group.id)).rejects.toMatchObject({
+			code: 'invalid_response'
+		});
+
+		fetchMock.mockResolvedValueOnce(jsonResponse(groupDetailFixture));
+		await expect(getGroupDetail('different-group')).rejects.toMatchObject({
 			code: 'invalid_response'
 		});
 	});

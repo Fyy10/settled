@@ -1,0 +1,242 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { ApiError, networkError } from '$lib/api/errors';
+import {
+	expenseListFixture,
+	groupDetailFixture,
+	repaymentListFixture,
+	settlementListFixture
+} from '../../../../tests/fixtures/api-contract';
+
+import GroupPage from './+page.svelte';
+
+const mocks = vi.hoisted(() => ({
+	goto: vi.fn(),
+	page: {
+		url: new URL('https://settled.test/groups/group-id?view=balances')
+	},
+	context: {
+		groupId: '',
+		status: 'ready' as 'loading' | 'ready' | 'error' | 'hidden',
+		group: null as (typeof groupDetailFixture)['group'] | null,
+		members: [] as (typeof groupDetailFixture)['members'][number][],
+		clear: vi.fn(),
+		markHidden: vi.fn()
+	},
+	listExpenses: vi.fn(),
+	listRepayments: vi.fn(),
+	listSettlements: vi.fn()
+}));
+
+vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
+vi.mock('$app/state', () => ({ page: mocks.page }));
+vi.mock('$lib/api/expenses', () => ({ listExpenses: mocks.listExpenses }));
+vi.mock('$lib/api/repayments', () => ({
+	listRepayments: mocks.listRepayments
+}));
+vi.mock('$lib/api/settlements', () => ({
+	listSettlements: mocks.listSettlements
+}));
+vi.mock('$lib/state/group-detail.svelte', () => ({
+	useGroupDetailContext: () => mocks.context
+}));
+vi.mock('$lib/config/public', () => ({
+	API_BASE_URL: 'http://localhost:8080'
+}));
+
+beforeEach(() => {
+	mocks.goto.mockReset().mockResolvedValue(undefined);
+	mocks.page.url = new URL(
+		`https://settled.test/groups/${groupDetailFixture.group.id}?view=balances`
+	);
+	mocks.context.groupId = groupDetailFixture.group.id;
+	mocks.context.status = 'ready';
+	mocks.context.group = groupDetailFixture.group;
+	mocks.context.members = [...groupDetailFixture.members];
+	mocks.context.clear.mockReset();
+	mocks.context.markHidden.mockReset();
+	mocks.listExpenses.mockReset().mockResolvedValue(expenseListFixture);
+	mocks.listRepayments.mockReset().mockResolvedValue(repaymentListFixture);
+	mocks.listSettlements.mockReset().mockResolvedValue(settlementListFixture);
+});
+
+describe('group workspace loading and navigation', () => {
+	it('starts all overview requests together and renders the responsive workspace', async () => {
+		const expensePending = deferred();
+		const repaymentPending = deferred();
+		const settlementPending = deferred();
+		mocks.listExpenses.mockReturnValue(expensePending.promise);
+		mocks.listRepayments.mockReturnValue(repaymentPending.promise);
+		mocks.listSettlements.mockReturnValue(settlementPending.promise);
+
+		const { unmount } = render(GroupPage);
+
+		await waitFor(() => {
+			expect(mocks.listExpenses).toHaveBeenCalledOnce();
+			expect(mocks.listRepayments).toHaveBeenCalledOnce();
+			expect(mocks.listSettlements).toHaveBeenCalledOnce();
+		});
+		expect(screen.getByRole('heading', { level: 1, name: 'Lake Trip' })).toBeInTheDocument();
+		expect(screen.getByRole('tablist', { name: 'Group views' })).toBeInTheDocument();
+		expect(screen.getAllByRole('link', { name: 'Add expense' })).toHaveLength(2);
+		expect(screen.getAllByRole('link', { name: 'Record payment' })).toHaveLength(2);
+
+		const signals = [
+			mocks.listExpenses.mock.calls[0][1].signal,
+			mocks.listRepayments.mock.calls[0][1].signal,
+			mocks.listSettlements.mock.calls[0][1].signal
+		];
+		unmount();
+		expect(signals.every((signal) => signal.aborted)).toBe(true);
+	});
+
+	it('normalizes duplicate view parameters to one balances value', async () => {
+		mocks.page.url = new URL(
+			`https://settled.test/groups/${groupDetailFixture.group.id}?source=share&view=members&view=activity`
+		);
+
+		render(GroupPage);
+
+		await waitFor(() => {
+			expect(mocks.goto).toHaveBeenCalledWith(
+				`/groups/${groupDetailFixture.group.id}?source=share&view=balances`,
+				{
+					replaceState: true,
+					noScroll: true,
+					keepFocus: true
+				}
+			);
+		});
+	});
+
+	it('changes only the view query through keyboard-capable tabs', async () => {
+		mocks.page.url = new URL(
+			`https://settled.test/groups/${groupDetailFixture.group.id}?source=share&view=balances#ledger`
+		);
+		render(GroupPage);
+
+		await fireEvent.click(screen.getByRole('tab', { name: 'Members' }));
+
+		expect(mocks.goto).toHaveBeenCalledWith(
+			`/groups/${groupDetailFixture.group.id}?source=share&view=members#ledger`,
+			{
+				replaceState: true,
+				noScroll: true,
+				keepFocus: true
+			}
+		);
+	});
+});
+
+describe('independent group workspace failures', () => {
+	it('keeps loaded payment activity when the expense request fails', async () => {
+		mocks.page.url = new URL(
+			`https://settled.test/groups/${groupDetailFixture.group.id}?view=activity`
+		);
+		mocks.listExpenses.mockRejectedValue(
+			networkError(new TypeError('Failed to fetch'))
+		);
+
+		render(GroupPage);
+
+		expect(
+			await screen.findByText('Settled couldn’t load expenses.')
+		).toBeInTheDocument();
+		expect(screen.getByText('Bob paid Alice')).toBeInTheDocument();
+		expect(screen.getAllByText('Recorded outside Settled')).toHaveLength(2);
+		await fireEvent.click(screen.getByRole('tab', { name: 'Balances' }));
+		expect(
+			await screen.findByRole('heading', { level: 2, name: 'Balances' })
+		).toBeInTheDocument();
+		expect(mocks.context.markHidden).not.toHaveBeenCalled();
+	});
+
+	it('retries only the failed activity resource', async () => {
+		mocks.page.url = new URL(
+			`https://settled.test/groups/${groupDetailFixture.group.id}?view=activity`
+		);
+		mocks.listExpenses
+			.mockRejectedValueOnce(networkError(new TypeError('Failed to fetch')))
+			.mockResolvedValueOnce({ expenses: [], members: expenseListFixture.members });
+		mocks.listRepayments.mockResolvedValue({
+			repayments: [],
+			members: repaymentListFixture.members
+		});
+
+		render(GroupPage);
+
+		await fireEvent.click(
+			await screen.findByRole('button', { name: 'Retry' })
+		);
+
+		expect(await screen.findByText('No activity yet')).toBeInTheDocument();
+		expect(mocks.listExpenses).toHaveBeenCalledTimes(2);
+		expect(mocks.listRepayments).toHaveBeenCalledOnce();
+		expect(mocks.listSettlements).toHaveBeenCalledOnce();
+	});
+
+	it('promotes any hidden-group 404 without showing a local panel error', async () => {
+		mocks.listSettlements.mockRejectedValue(
+			new ApiError({
+				status: 404,
+				code: 'not_found',
+				message: 'Not found.',
+				fields: {}
+			})
+		);
+
+		render(GroupPage);
+
+		await waitFor(() => expect(mocks.context.markHidden).toHaveBeenCalledOnce());
+		expect(screen.queryByText('Settled couldn’t load balances.')).not.toBeInTheDocument();
+		expect(mocks.context.clear).not.toHaveBeenCalled();
+	});
+
+	it('leaves 401 handling to the global session flow and clears route metadata', async () => {
+		mocks.listRepayments.mockRejectedValue(
+			new ApiError({
+				status: 401,
+				code: 'unauthorized',
+				message: 'Authentication is required.',
+				fields: {}
+			})
+		);
+
+		render(GroupPage);
+
+		await waitFor(() => expect(mocks.context.clear).toHaveBeenCalledOnce());
+		expect(mocks.context.markHidden).not.toHaveBeenCalled();
+		expect(
+			screen.queryByText('Settled couldn’t load payment records.')
+		).not.toBeInTheDocument();
+	});
+});
+
+describe('authoritative balances', () => {
+	it('shows the documented empty state only when the backend returns no settlements', async () => {
+		mocks.listSettlements.mockResolvedValue({
+			settlements: [],
+			members: settlementListFixture.members
+		});
+
+		render(GroupPage);
+
+		expect(await screen.findByText('All settled')).toBeInTheDocument();
+		expect(
+			screen.getByText('There are no current balances in this group.')
+		).toBeInTheDocument();
+	});
+});
+
+function deferred<T = unknown>(): {
+	promise: Promise<T>;
+	resolve: (value: T) => void;
+} {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((complete) => {
+		resolve = complete;
+	});
+
+	return { promise, resolve };
+}

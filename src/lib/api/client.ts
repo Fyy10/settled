@@ -14,6 +14,7 @@ export {
 	apiFieldMap,
 	classifyApiError,
 	isCsrfApiError,
+	isNotFoundApiError,
 	isNetworkApiError,
 	isUnauthorizedApiError,
 	mapApiFieldErrors
