@@ -5,6 +5,7 @@ import {
 	currentUserFixture,
 	expenseListFixture,
 	groupDetailFixture,
+	groupListFixture,
 	repaymentListFixture,
 	settlementListFixture
 } from '../../tests/fixtures/api-contract';
@@ -12,6 +13,7 @@ import type {
 	CurrentUserResponse,
 	ExpenseListResponse,
 	GroupDetailResponse,
+	GroupListResponse,
 	RepaymentListResponse,
 	SettlementListResponse
 } from './types';
@@ -20,6 +22,7 @@ import {
 	isCurrentUserResponse,
 	isExpenseListResponse,
 	isGroupDetailResponse,
+	isGroupListResponse,
 	isRepaymentListResponse,
 	isSettlementListResponse
 } from './validation';
@@ -28,12 +31,14 @@ describe('API contract fixtures', () => {
 	it('keeps the documented response wrappers typed and valid', () => {
 		expectTypeOf(currentUserFixture).toMatchTypeOf<CurrentUserResponse>();
 		expectTypeOf(groupDetailFixture).toMatchTypeOf<GroupDetailResponse>();
+		expectTypeOf(groupListFixture).toMatchTypeOf<GroupListResponse>();
 		expectTypeOf(expenseListFixture).toMatchTypeOf<ExpenseListResponse>();
 		expectTypeOf(repaymentListFixture).toMatchTypeOf<RepaymentListResponse>();
 		expectTypeOf(settlementListFixture).toMatchTypeOf<SettlementListResponse>();
 
 		expect(isCurrentUserResponse(currentUserFixture)).toBe(true);
 		expect(isGroupDetailResponse(groupDetailFixture)).toBe(true);
+		expect(isGroupListResponse(groupListFixture)).toBe(true);
 		expect(isExpenseListResponse(expenseListFixture)).toBe(true);
 		expect(isRepaymentListResponse(repaymentListFixture)).toBe(true);
 		expect(isSettlementListResponse(settlementListFixture)).toBe(true);
@@ -43,6 +48,7 @@ describe('API contract fixtures', () => {
 		for (const fixture of [
 			currentUserFixture,
 			groupDetailFixture,
+			groupListFixture,
 			expenseListFixture,
 			repaymentListFixture,
 			settlementListFixture

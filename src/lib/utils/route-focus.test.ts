@@ -16,6 +16,7 @@ describe('shouldFocusRouteHeading', () => {
 
 	it('does not steal focus during initial rendering', () => {
 		expect(shouldFocusRouteHeading(undefined, new URL('/groups', origin))).toBe(false);
+		expect(shouldFocusRouteHeading(null, new URL('/groups', origin))).toBe(false);
 	});
 
 	it('preserves focus when only the group view query changes', () => {

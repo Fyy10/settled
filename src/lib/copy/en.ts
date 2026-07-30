@@ -64,6 +64,42 @@ export const copy = {
 			failure: 'Settled could not sign you out. Your current page is still open. Try again.'
 		}
 	},
+	groups: {
+		createAction: 'Create group',
+		joinAction: 'Join with code',
+		loading: 'Loading your groups',
+		loadFailureTitle: 'Settled couldn’t load your groups.',
+		loadFailureDescription: 'Check your connection and try again.',
+		retry: 'Retry',
+		emptyTitle: 'No groups yet',
+		emptyDescription: 'Create a group for a trip or household, or join one with a code.',
+		owner: 'Owner',
+		updated: 'Updated',
+		create: {
+			title: 'Create group',
+			description: 'Give this shared ledger a name everyone will recognize.',
+			nameLabel: 'Group name',
+			nameRequired: 'Enter a group name.',
+			nameTooLong: 'Group name must not exceed 160 characters.',
+			cancel: 'Cancel',
+			submit: 'Create group',
+			pending: 'Creating group',
+			failure: 'Settled could not create the group. Check the name and try again.',
+			success: 'Group created'
+		},
+		join: {
+			title: 'Join a group',
+			description: 'Enter the private group code shared with you.',
+			codeLabel: 'Group code',
+			codeRequired: 'Enter a group code.',
+			cancel: 'Cancel',
+			submit: 'Join group',
+			pending: 'Joining group',
+			invalidCode: 'That group code is not valid.',
+			failure: 'Settled could not join the group. Check the code and try again.',
+			success: 'Group joined'
+		}
+	},
 	errors: {
 		documentTitle: 'Error',
 		unexpectedTitle: 'Something went wrong',

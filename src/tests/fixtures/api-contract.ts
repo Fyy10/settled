@@ -3,6 +3,7 @@ import type {
 	CurrentUserResponse,
 	ExpenseListResponse,
 	GroupDetailResponse,
+	GroupListResponse,
 	RepaymentListResponse,
 	SettlementListResponse
 } from '$lib/api/types';
@@ -44,6 +45,21 @@ export const groupDetailFixture = {
 		}
 	]
 } satisfies GroupDetailResponse;
+
+export const groupListFixture = {
+	groups: [
+		groupDetailFixture.group,
+		{
+			id: '7504ca82-22c5-49d5-a6aa-f7a478f31c16',
+			name: 'Household',
+			ownerUserId: groupDetailFixture.members[1].userId,
+			memberCount: 4,
+			currentUserRole: 'member',
+			createdAt: '2026-07-01T18:00:00Z',
+			updatedAt: '2026-07-02T18:00:00Z'
+		}
+	]
+} satisfies GroupListResponse;
 
 export const expenseListFixture = {
 	expenses: [
