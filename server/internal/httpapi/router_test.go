@@ -90,6 +90,112 @@ func TestRouterReturnsCommonJSONForUnknownPathAndMethod(t *testing.T) {
 	}
 }
 
+func TestDocumentedRouteMethodMatrix(t *testing.T) {
+	t.Parallel()
+
+	const (
+		groupID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+		userID  = "11112222-3333-4444-8555-666677778888"
+		itemID  = "22222222-3333-4444-8555-666666666666"
+	)
+	api, _ := newTestAPI(
+		t,
+		pingerFunc(func(context.Context) error { return nil }),
+		defaultTestOptions(),
+	)
+	tests := []struct {
+		path    string
+		methods []string
+	}{
+		{path: "/api/health/live", methods: []string{http.MethodGet, http.MethodHead}},
+		{path: "/api/health/ready", methods: []string{http.MethodGet, http.MethodHead}},
+		{path: "/api/auth/csrf", methods: []string{http.MethodGet, http.MethodHead}},
+		{path: "/api/auth/register", methods: []string{http.MethodPost}},
+		{path: "/api/auth/login", methods: []string{http.MethodPost}},
+		{path: "/api/auth/logout", methods: []string{http.MethodPost}},
+		{path: "/api/me", methods: []string{http.MethodGet, http.MethodHead}},
+		{
+			path:    "/api/groups",
+			methods: []string{http.MethodGet, http.MethodHead, http.MethodPost},
+		},
+		{path: "/api/groups/join", methods: []string{http.MethodPost}},
+		{
+			path: "/api/groups/" + groupID,
+			methods: []string{
+				http.MethodGet,
+				http.MethodHead,
+				http.MethodPatch,
+				http.MethodDelete,
+			},
+		},
+		{
+			path:    "/api/groups/" + groupID + "/join-code",
+			methods: []string{http.MethodGet, http.MethodHead},
+		},
+		{
+			path:    "/api/groups/" + groupID + "/members/" + userID,
+			methods: []string{http.MethodDelete},
+		},
+		{
+			path: "/api/groups/" + groupID + "/expenses",
+			methods: []string{
+				http.MethodGet,
+				http.MethodHead,
+				http.MethodPost,
+			},
+		},
+		{
+			path: "/api/groups/" + groupID + "/expenses/" + itemID,
+			methods: []string{
+				http.MethodGet,
+				http.MethodHead,
+				http.MethodPut,
+				http.MethodDelete,
+			},
+		},
+		{
+			path: "/api/groups/" + groupID + "/repayments",
+			methods: []string{
+				http.MethodGet,
+				http.MethodHead,
+				http.MethodPost,
+			},
+		},
+		{
+			path: "/api/groups/" + groupID + "/repayments/" + itemID,
+			methods: []string{
+				http.MethodGet,
+				http.MethodHead,
+				http.MethodPut,
+				http.MethodDelete,
+			},
+		},
+		{
+			path:    "/api/groups/" + groupID + "/settlements",
+			methods: []string{http.MethodGet, http.MethodHead},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			api.Handler().ServeHTTP(
+				response,
+				httptest.NewRequest(http.MethodTrace, test.path, nil),
+			)
+			result := response.Result()
+
+			assertAllowedMethods(t, result.Header.Get("Allow"), test.methods)
+			assertAPIError(
+				t,
+				result,
+				http.StatusMethodNotAllowed,
+				"method_not_allowed",
+			)
+		})
+	}
+}
+
 func TestRouterDoesNotRedirectPathVariants(t *testing.T) {
 	t.Parallel()
 
@@ -116,5 +222,27 @@ func TestRouterDoesNotRedirectPathVariants(t *testing.T) {
 				t.Errorf("Location = %q, want no redirect", location)
 			}
 		})
+	}
+}
+
+func assertAllowedMethods(t *testing.T, allow string, want []string) {
+	t.Helper()
+
+	got := make(map[string]struct{})
+	for _, method := range strings.Split(allow, ",") {
+		method = strings.TrimSpace(method)
+		if method != "" {
+			got[method] = struct{}{}
+		}
+	}
+	if len(got) != len(want) {
+		t.Errorf("Allow = %q, want methods %v", allow, want)
+		return
+	}
+	for _, method := range want {
+		if _, ok := got[method]; !ok {
+			t.Errorf("Allow = %q, want methods %v", allow, want)
+			return
+		}
 	}
 }

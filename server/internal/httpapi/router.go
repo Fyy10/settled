@@ -61,6 +61,13 @@ func (a *API) serveRoutes(w http.ResponseWriter, request *http.Request) {
 		a.writeError(w, notFoundError)
 		return
 	}
+	// The literal join path overlaps the group ID wildcard for other methods.
+	// Keep the documented literal route authoritative for every method.
+	if request.URL.Path == "/api/groups/join" && request.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		a.writeError(w, methodNotAllowedError)
+		return
+	}
 
 	handler, pattern := a.mux.Handler(request)
 	if pattern == "" {

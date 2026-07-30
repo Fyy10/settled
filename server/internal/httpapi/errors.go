@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -102,10 +103,21 @@ func (a *API) handleError(
 		a.logger.Error(
 			"HTTP request failed",
 			slog.String("request_id", requestIDFromContext(request.Context())),
-			slog.Any("error", err),
+			slog.String("error_class", safeInternalErrorClass(err)),
 		)
 	}
 	a.writeError(w, spec)
+}
+
+func safeInternalErrorClass(err error) string {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "deadline_exceeded"
+	case errors.Is(err, context.Canceled):
+		return "request_canceled"
+	default:
+		return "internal"
+	}
 }
 
 func errorFor(err error) errorSpec {

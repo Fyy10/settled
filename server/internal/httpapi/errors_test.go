@@ -222,4 +222,46 @@ func TestHandleErrorDoesNotExposeInternalDetail(t *testing.T) {
 	if logs.Len() == 0 {
 		t.Error("internal error was not logged")
 	}
+	logOutput := logs.String()
+	if strings.Contains(logOutput, privateError.Error()) {
+		t.Errorf("log exposes private detail: %s", logOutput)
+	}
+	if !strings.Contains(logOutput, `"error_class":"internal"`) {
+		t.Errorf("log lacks safe internal error class: %s", logOutput)
+	}
+}
+
+func TestSafeInternalErrorClass(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "deadline",
+			err:  errors.Join(errors.New("private detail"), context.DeadlineExceeded),
+			want: "deadline_exceeded",
+		},
+		{
+			name: "canceled",
+			err:  errors.Join(errors.New("private detail"), context.Canceled),
+			want: "request_canceled",
+		},
+		{
+			name: "internal",
+			err:  errors.New("private detail"),
+			want: "internal",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := safeInternalErrorClass(test.err); got != test.want {
+				t.Errorf("safeInternalErrorClass() = %q, want %q", got, test.want)
+			}
+		})
+	}
 }
