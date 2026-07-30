@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Fyy10/settled/server/internal/auth"
+	"github.com/Fyy10/settled/server/internal/groups"
 )
 
 var (
@@ -105,11 +106,16 @@ func (a *API) handleError(
 }
 
 func errorFor(err error) errorSpec {
-	var validation *ValidationError
+	var authValidation *auth.ValidationError
+	var groupValidation *groups.ValidationError
 	switch {
-	case errors.As(err, &validation):
+	case errors.As(err, &authValidation):
 		spec := validationFailedError
-		spec.fields = validation.Fields
+		spec.fields = authValidation.Fields
+		return spec
+	case errors.As(err, &groupValidation):
+		spec := validationFailedError
+		spec.fields = groupValidation.Fields
 		return spec
 	case errors.Is(err, ErrBadRequest):
 		return badRequestError
@@ -124,7 +130,7 @@ func errorFor(err error) errorSpec {
 		return csrfInvalidError
 	case errors.Is(err, ErrForbidden):
 		return forbiddenError
-	case errors.Is(err, ErrNotFound):
+	case errors.Is(err, ErrNotFound), errors.Is(err, groups.ErrNotFound):
 		return notFoundError
 	case errors.Is(err, ErrConflict), errors.Is(err, auth.ErrDuplicateEmail):
 		return conflictError

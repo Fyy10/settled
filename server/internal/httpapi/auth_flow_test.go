@@ -57,6 +57,7 @@ func TestAuthenticationCookieJarFlow(t *testing.T) {
 		Options{
 			AllowedOrigins: []string{"https://web.example"},
 			Auth:           authService,
+			Groups:         fakeGroupService{},
 			Sessions:       sessions,
 			CSRF:           csrf,
 			SessionCookies: auth.NewSessionCookies(

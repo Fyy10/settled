@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Fyy10/settled/server/internal/auth"
+	"github.com/Fyy10/settled/server/internal/groups"
 )
 
 type sessionValidatorFunc func(string) (auth.Session, error)
@@ -21,6 +22,56 @@ type fakeAuthService struct {
 	register func(context.Context, auth.RegisterInput) (auth.AuthResult, error)
 	login    func(context.Context, string, string) (auth.AuthResult, error)
 	findUser func(context.Context, string) (auth.User, error)
+}
+
+type fakeGroupService struct {
+	create func(context.Context, string, string) (groups.Group, error)
+	list   func(context.Context, string) ([]groups.Group, error)
+	join   func(context.Context, string, string) (groups.Group, error)
+	get    func(context.Context, string, string) (groups.Detail, error)
+}
+
+func (service fakeGroupService) Create(
+	ctx context.Context,
+	actorID string,
+	name string,
+) (groups.Group, error) {
+	if service.create == nil {
+		return groups.Group{}, errors.New("unexpected group Create call")
+	}
+	return service.create(ctx, actorID, name)
+}
+
+func (service fakeGroupService) List(
+	ctx context.Context,
+	actorID string,
+) ([]groups.Group, error) {
+	if service.list == nil {
+		return nil, errors.New("unexpected group List call")
+	}
+	return service.list(ctx, actorID)
+}
+
+func (service fakeGroupService) Join(
+	ctx context.Context,
+	actorID string,
+	joinCode string,
+) (groups.Group, error) {
+	if service.join == nil {
+		return groups.Group{}, errors.New("unexpected group Join call")
+	}
+	return service.join(ctx, actorID, joinCode)
+}
+
+func (service fakeGroupService) Get(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+) (groups.Detail, error) {
+	if service.get == nil {
+		return groups.Detail{}, errors.New("unexpected group Get call")
+	}
+	return service.get(ctx, actorID, groupID)
 }
 
 func (service fakeAuthService) Register(
@@ -141,6 +192,35 @@ func defaultTestOptions() Options {
 				userID string,
 			) (auth.User, error) {
 				return auth.User{ID: userID}, nil
+			},
+		},
+		Groups: fakeGroupService{
+			create: func(
+				context.Context,
+				string,
+				string,
+			) (groups.Group, error) {
+				return groups.Group{}, errors.New("unexpected group Create call")
+			},
+			list: func(
+				context.Context,
+				string,
+			) ([]groups.Group, error) {
+				return nil, errors.New("unexpected group List call")
+			},
+			join: func(
+				context.Context,
+				string,
+				string,
+			) (groups.Group, error) {
+				return groups.Group{}, errors.New("unexpected group Join call")
+			},
+			get: func(
+				context.Context,
+				string,
+				string,
+			) (groups.Detail, error) {
+				return groups.Detail{}, errors.New("unexpected group Get call")
 			},
 		},
 		Sessions: sessionValidatorFunc(func(string) (auth.Session, error) {

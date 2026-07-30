@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/Fyy10/settled/server/internal/auth"
+	"github.com/Fyy10/settled/server/internal/groups"
 )
 
 type Pinger interface {
@@ -25,6 +26,13 @@ type AuthService interface {
 	FindUser(context.Context, string) (auth.User, error)
 }
 
+type GroupService interface {
+	Create(context.Context, string, string) (groups.Group, error)
+	List(context.Context, string) ([]groups.Group, error)
+	Join(context.Context, string, string) (groups.Group, error)
+	Get(context.Context, string, string) (groups.Detail, error)
+}
+
 type CSRFProtector interface {
 	IssueOrReuse(string, *auth.Session) (auth.CSRFBinding, error)
 	RotateAnonymous() (auth.CSRFBinding, error)
@@ -36,6 +44,7 @@ type CSRFProtector interface {
 type Options struct {
 	AllowedOrigins []string
 	Auth           AuthService
+	Groups         GroupService
 	Sessions       SessionValidator
 	CSRF           CSRFProtector
 	SessionCookies auth.SessionCookies
@@ -47,6 +56,7 @@ type API struct {
 	db             Pinger
 	logger         *slog.Logger
 	authService    AuthService
+	groupService   GroupService
 	sessions       SessionValidator
 	csrf           CSRFProtector
 	sessionCookies auth.SessionCookies
@@ -61,6 +71,7 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 	if db == nil ||
 		logger == nil ||
 		options.Auth == nil ||
+		options.Groups == nil ||
 		options.Sessions == nil ||
 		options.CSRF == nil {
 		return nil, errors.New("invalid HTTP API configuration")
@@ -79,6 +90,7 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 		db:             db,
 		logger:         logger,
 		authService:    options.Auth,
+		groupService:   options.Groups,
 		sessions:       options.Sessions,
 		csrf:           options.CSRF,
 		sessionCookies: options.SessionCookies,
@@ -94,6 +106,10 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 	api.register("POST /api/auth/login", routeAnonymousUnsafe, api.login)
 	api.register("POST /api/auth/logout", routeAuthenticatedUnsafe, api.logout)
 	api.register("GET /api/me", routeAuthenticated, api.me)
+	api.register("GET /api/groups", routeAuthenticated, api.listGroups)
+	api.register("POST /api/groups", routeAuthenticatedUnsafe, api.createGroup)
+	api.register("POST /api/groups/join", routeAuthenticatedUnsafe, api.joinGroup)
+	api.register("GET /api/groups/{groupId}", routeAuthenticated, api.getGroup)
 	api.handler = api.withPanicRecovery(
 		api.withRequestIDAndAccessLog(
 			api.withSecurityHeaders(
