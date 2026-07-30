@@ -127,6 +127,58 @@ func (service *Service) Get(
 	return service.store.GetGroup(ctx, actorID, groupID)
 }
 
+func (service *Service) Rename(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+	name string,
+) (Group, error) {
+	normalizedName, err := input.NormalizeGroupName(name)
+	if err != nil {
+		return Group{}, validationError(err)
+	}
+	return service.store.RenameGroup(ctx, RenameGroupInput{
+		ActorID:   actorID,
+		GroupID:   groupID,
+		Name:      normalizedName,
+		UpdatedAt: service.clock.Now().UTC(),
+	})
+}
+
+func (service *Service) Dissolve(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+) error {
+	return service.store.DissolveGroup(ctx, DissolveGroupInput{
+		ActorID:     actorID,
+		GroupID:     groupID,
+		DissolvedAt: service.clock.Now().UTC(),
+	})
+}
+
+func (service *Service) GetJoinCode(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+) (string, error) {
+	return service.store.GetJoinCode(ctx, actorID, groupID)
+}
+
+func (service *Service) RemoveMember(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+	userID string,
+) error {
+	return service.store.RemoveMember(ctx, RemoveMemberInput{
+		ActorID:   actorID,
+		GroupID:   groupID,
+		UserID:    userID,
+		RemovedAt: service.clock.Now().UTC(),
+	})
+}
+
 func normalizeJoinCode(value string) (string, error) {
 	if !utf8.ValidString(value) {
 		return "", &ValidationError{Fields: map[string]string{

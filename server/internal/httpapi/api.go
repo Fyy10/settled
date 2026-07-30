@@ -31,6 +31,10 @@ type GroupService interface {
 	List(context.Context, string) ([]groups.Group, error)
 	Join(context.Context, string, string) (groups.Group, error)
 	Get(context.Context, string, string) (groups.Detail, error)
+	Rename(context.Context, string, string, string) (groups.Group, error)
+	Dissolve(context.Context, string, string) error
+	GetJoinCode(context.Context, string, string) (string, error)
+	RemoveMember(context.Context, string, string, string) error
 }
 
 type CSRFProtector interface {
@@ -110,6 +114,18 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 	api.register("POST /api/groups", routeAuthenticatedUnsafe, api.createGroup)
 	api.register("POST /api/groups/join", routeAuthenticatedUnsafe, api.joinGroup)
 	api.register("GET /api/groups/{groupId}", routeAuthenticated, api.getGroup)
+	api.register("PATCH /api/groups/{groupId}", routeAuthenticatedUnsafe, api.renameGroup)
+	api.register("DELETE /api/groups/{groupId}", routeAuthenticatedUnsafe, api.dissolveGroup)
+	api.register(
+		"GET /api/groups/{groupId}/join-code",
+		routeAuthenticated,
+		api.getGroupJoinCode,
+	)
+	api.register(
+		"DELETE /api/groups/{groupId}/members/{userId}",
+		routeAuthenticatedUnsafe,
+		api.removeGroupMember,
+	)
 	api.handler = api.withPanicRecovery(
 		api.withRequestIDAndAccessLog(
 			api.withSecurityHeaders(

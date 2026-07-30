@@ -121,13 +121,9 @@ func (a *API) getGroup(w http.ResponseWriter, request *http.Request) {
 		a.writeError(w, unauthorizedError)
 		return
 	}
-	groupID, err := identifier.ParseUUID(request.PathValue("groupId"))
+	groupID, err := pathUUID(request, "groupId")
 	if err != nil {
-		a.handleError(
-			w,
-			request,
-			fmt.Errorf("%w: invalid groupId", ErrBadRequest),
-		)
+		a.handleError(w, request, err)
 		return
 	}
 	detail, err := a.groupService.Get(
@@ -191,4 +187,12 @@ func authenticatedUserID(request *http.Request) (string, bool) {
 		return "", false
 	}
 	return user.ID, true
+}
+
+func pathUUID(request *http.Request, name string) (string, error) {
+	value, err := identifier.ParseUUID(request.PathValue(name))
+	if err != nil {
+		return "", fmt.Errorf("%w: invalid %s", ErrBadRequest, name)
+	}
+	return value, nil
 }

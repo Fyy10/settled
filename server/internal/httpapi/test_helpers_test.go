@@ -25,10 +25,14 @@ type fakeAuthService struct {
 }
 
 type fakeGroupService struct {
-	create func(context.Context, string, string) (groups.Group, error)
-	list   func(context.Context, string) ([]groups.Group, error)
-	join   func(context.Context, string, string) (groups.Group, error)
-	get    func(context.Context, string, string) (groups.Detail, error)
+	create       func(context.Context, string, string) (groups.Group, error)
+	list         func(context.Context, string) ([]groups.Group, error)
+	join         func(context.Context, string, string) (groups.Group, error)
+	get          func(context.Context, string, string) (groups.Detail, error)
+	rename       func(context.Context, string, string, string) (groups.Group, error)
+	dissolve     func(context.Context, string, string) error
+	getJoinCode  func(context.Context, string, string) (string, error)
+	removeMember func(context.Context, string, string, string) error
 }
 
 func (service fakeGroupService) Create(
@@ -72,6 +76,52 @@ func (service fakeGroupService) Get(
 		return groups.Detail{}, errors.New("unexpected group Get call")
 	}
 	return service.get(ctx, actorID, groupID)
+}
+
+func (service fakeGroupService) Rename(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+	name string,
+) (groups.Group, error) {
+	if service.rename == nil {
+		return groups.Group{}, errors.New("unexpected group Rename call")
+	}
+	return service.rename(ctx, actorID, groupID, name)
+}
+
+func (service fakeGroupService) Dissolve(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+) error {
+	if service.dissolve == nil {
+		return errors.New("unexpected group Dissolve call")
+	}
+	return service.dissolve(ctx, actorID, groupID)
+}
+
+func (service fakeGroupService) GetJoinCode(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+) (string, error) {
+	if service.getJoinCode == nil {
+		return "", errors.New("unexpected group GetJoinCode call")
+	}
+	return service.getJoinCode(ctx, actorID, groupID)
+}
+
+func (service fakeGroupService) RemoveMember(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+	userID string,
+) error {
+	if service.removeMember == nil {
+		return errors.New("unexpected group RemoveMember call")
+	}
+	return service.removeMember(ctx, actorID, groupID, userID)
 }
 
 func (service fakeAuthService) Register(
@@ -221,6 +271,32 @@ func defaultTestOptions() Options {
 				string,
 			) (groups.Detail, error) {
 				return groups.Detail{}, errors.New("unexpected group Get call")
+			},
+			rename: func(
+				context.Context,
+				string,
+				string,
+				string,
+			) (groups.Group, error) {
+				return groups.Group{}, errors.New("unexpected group Rename call")
+			},
+			dissolve: func(context.Context, string, string) error {
+				return errors.New("unexpected group Dissolve call")
+			},
+			getJoinCode: func(
+				context.Context,
+				string,
+				string,
+			) (string, error) {
+				return "", errors.New("unexpected group GetJoinCode call")
+			},
+			removeMember: func(
+				context.Context,
+				string,
+				string,
+				string,
+			) error {
+				return errors.New("unexpected group RemoveMember call")
 			},
 		},
 		Sessions: sessionValidatorFunc(func(string) (auth.Session, error) {

@@ -35,6 +35,10 @@ type storeStub struct {
 	listGroups  func(context.Context, string) ([]Group, error)
 	joinGroup   func(context.Context, JoinGroupInput) (Group, error)
 	getGroup    func(context.Context, string, string) (Detail, error)
+	renameGroup func(context.Context, RenameGroupInput) (Group, error)
+	dissolve    func(context.Context, DissolveGroupInput) error
+	getJoinCode func(context.Context, string, string) (string, error)
+	remove      func(context.Context, RemoveMemberInput) error
 }
 
 func (store storeStub) CreateGroup(
@@ -76,6 +80,47 @@ func (store storeStub) GetGroup(
 		return Detail{}, errors.New("unexpected GetGroup call")
 	}
 	return store.getGroup(ctx, actorID, groupID)
+}
+
+func (store storeStub) RenameGroup(
+	ctx context.Context,
+	input RenameGroupInput,
+) (Group, error) {
+	if store.renameGroup == nil {
+		return Group{}, errors.New("unexpected RenameGroup call")
+	}
+	return store.renameGroup(ctx, input)
+}
+
+func (store storeStub) DissolveGroup(
+	ctx context.Context,
+	input DissolveGroupInput,
+) error {
+	if store.dissolve == nil {
+		return errors.New("unexpected DissolveGroup call")
+	}
+	return store.dissolve(ctx, input)
+}
+
+func (store storeStub) GetJoinCode(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+) (string, error) {
+	if store.getJoinCode == nil {
+		return "", errors.New("unexpected GetJoinCode call")
+	}
+	return store.getJoinCode(ctx, actorID, groupID)
+}
+
+func (store storeStub) RemoveMember(
+	ctx context.Context,
+	input RemoveMemberInput,
+) error {
+	if store.remove == nil {
+		return errors.New("unexpected RemoveMember call")
+	}
+	return store.remove(ctx, input)
 }
 
 func TestServiceCreateNormalizesAndBuildsAtomicStoreInput(t *testing.T) {
@@ -522,6 +567,299 @@ func TestServiceDelegatesListAndGet(t *testing.T) {
 	}
 	if !reflect.DeepEqual(detail, wantDetail) {
 		t.Errorf("detail = %+v, want %+v", detail, wantDetail)
+	}
+}
+
+func TestServiceRenameNormalizesAndUsesWorkflowTime(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.WithValue(context.Background(), groupServiceContextKey{}, "value")
+	wantGroup := groupServiceTestGroup()
+	wantGroup.Name = "Beach Trip"
+	wantGroup.UpdatedAt = groupServiceTestNow.UTC()
+	service := newGroupServiceForTest(
+		t,
+		storeStub{
+			renameGroup: func(
+				gotContext context.Context,
+				input RenameGroupInput,
+			) (Group, error) {
+				if gotContext != ctx {
+					t.Error("RenameGroup did not receive caller context")
+				}
+				want := RenameGroupInput{
+					ActorID:   groupServiceActorID,
+					GroupID:   groupServiceGroupID,
+					Name:      "Beach Trip",
+					UpdatedAt: groupServiceTestNow.UTC(),
+				}
+				if input != want {
+					t.Errorf("RenameGroup input = %+v, want %+v", input, want)
+				}
+				return wantGroup, nil
+			},
+		},
+		bytes.NewReader(nil),
+	)
+
+	group, err := service.Rename(
+		ctx,
+		groupServiceActorID,
+		groupServiceGroupID,
+		"\u2003Beach Trip\u2003",
+	)
+
+	if err != nil {
+		t.Fatalf("Rename: %v", err)
+	}
+	if group != wantGroup {
+		t.Errorf("group = %+v, want %+v", group, wantGroup)
+	}
+}
+
+func TestServiceRenameValidationPreventsStoreWork(t *testing.T) {
+	t.Parallel()
+
+	storeCalled := false
+	service := newGroupServiceForTest(
+		t,
+		storeStub{
+			renameGroup: func(
+				context.Context,
+				RenameGroupInput,
+			) (Group, error) {
+				storeCalled = true
+				return Group{}, nil
+			},
+		},
+		bytes.NewReader(nil),
+	)
+
+	_, err := service.Rename(
+		context.Background(),
+		groupServiceActorID,
+		groupServiceGroupID,
+		"\u2003",
+	)
+
+	var validation *ValidationError
+	if !errors.As(err, &validation) {
+		t.Fatalf("error = %v, want ValidationError", err)
+	}
+	if validation.Fields["name"] != "Group name is required." {
+		t.Errorf("fields = %v", validation.Fields)
+	}
+	if storeCalled {
+		t.Error("invalid rename reached Store")
+	}
+}
+
+func TestServiceOwnerWorkflowsDelegateWithActorAndTime(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.WithValue(context.Background(), groupServiceContextKey{}, "value")
+	const joinCode = "PRIVATECODE2"
+	dissolveCalls := 0
+	removeCalls := 0
+	service := newGroupServiceForTest(
+		t,
+		storeStub{
+			dissolve: func(
+				gotContext context.Context,
+				input DissolveGroupInput,
+			) error {
+				dissolveCalls++
+				if gotContext != ctx {
+					t.Error("DissolveGroup did not receive caller context")
+				}
+				want := DissolveGroupInput{
+					ActorID:     groupServiceActorID,
+					GroupID:     groupServiceGroupID,
+					DissolvedAt: groupServiceTestNow.UTC(),
+				}
+				if input != want {
+					t.Errorf("DissolveGroup input = %+v, want %+v", input, want)
+				}
+				return nil
+			},
+			getJoinCode: func(
+				gotContext context.Context,
+				actorID string,
+				groupID string,
+			) (string, error) {
+				if gotContext != ctx ||
+					actorID != groupServiceActorID ||
+					groupID != groupServiceGroupID {
+					t.Errorf(
+						"GetJoinCode inputs = (%v, %q, %q)",
+						gotContext,
+						actorID,
+						groupID,
+					)
+				}
+				return joinCode, nil
+			},
+			remove: func(
+				gotContext context.Context,
+				input RemoveMemberInput,
+			) error {
+				removeCalls++
+				if gotContext != ctx {
+					t.Error("RemoveMember did not receive caller context")
+				}
+				want := RemoveMemberInput{
+					ActorID:   groupServiceActorID,
+					GroupID:   groupServiceGroupID,
+					UserID:    "11112222-3333-4444-8555-666677778888",
+					RemovedAt: groupServiceTestNow.UTC(),
+				}
+				if input != want {
+					t.Errorf("RemoveMember input = %+v, want %+v", input, want)
+				}
+				return nil
+			},
+		},
+		bytes.NewReader(nil),
+	)
+
+	if err := service.Dissolve(
+		ctx,
+		groupServiceActorID,
+		groupServiceGroupID,
+	); err != nil {
+		t.Fatalf("Dissolve: %v", err)
+	}
+	gotJoinCode, err := service.GetJoinCode(
+		ctx,
+		groupServiceActorID,
+		groupServiceGroupID,
+	)
+	if err != nil {
+		t.Fatalf("GetJoinCode: %v", err)
+	}
+	if gotJoinCode != joinCode {
+		t.Errorf("join code = %q, want %q", gotJoinCode, joinCode)
+	}
+	if err := service.RemoveMember(
+		ctx,
+		groupServiceActorID,
+		groupServiceGroupID,
+		"11112222-3333-4444-8555-666677778888",
+	); err != nil {
+		t.Fatalf("RemoveMember: %v", err)
+	}
+	if dissolveCalls != 1 || removeCalls != 1 {
+		t.Errorf(
+			"calls = dissolve %d remove %d, want 1 each",
+			dissolveCalls,
+			removeCalls,
+		)
+	}
+}
+
+func TestServiceOwnerWorkflowErrorsRemainCategorized(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		wantError error
+		call      func(*Service) error
+		store     storeStub
+	}{
+		{
+			name:      "rename forbidden",
+			wantError: ErrForbidden,
+			call: func(service *Service) error {
+				_, err := service.Rename(
+					context.Background(),
+					groupServiceActorID,
+					groupServiceGroupID,
+					"Beach Trip",
+				)
+				return err
+			},
+			store: storeStub{
+				renameGroup: func(
+					context.Context,
+					RenameGroupInput,
+				) (Group, error) {
+					return Group{}, fmt.Errorf("rename: %w", ErrForbidden)
+				},
+			},
+		},
+		{
+			name:      "dissolve hidden",
+			wantError: ErrNotFound,
+			call: func(service *Service) error {
+				return service.Dissolve(
+					context.Background(),
+					groupServiceActorID,
+					groupServiceGroupID,
+				)
+			},
+			store: storeStub{
+				dissolve: func(
+					context.Context,
+					DissolveGroupInput,
+				) error {
+					return fmt.Errorf("dissolve: %w", ErrNotFound)
+				},
+			},
+		},
+		{
+			name:      "join code forbidden",
+			wantError: ErrForbidden,
+			call: func(service *Service) error {
+				_, err := service.GetJoinCode(
+					context.Background(),
+					groupServiceActorID,
+					groupServiceGroupID,
+				)
+				return err
+			},
+			store: storeStub{
+				getJoinCode: func(
+					context.Context,
+					string,
+					string,
+				) (string, error) {
+					return "", fmt.Errorf("join code: %w", ErrForbidden)
+				},
+			},
+		},
+		{
+			name:      "member in use",
+			wantError: ErrMemberInUse,
+			call: func(service *Service) error {
+				return service.RemoveMember(
+					context.Background(),
+					groupServiceActorID,
+					groupServiceGroupID,
+					"11112222-3333-4444-8555-666677778888",
+				)
+			},
+			store: storeStub{
+				remove: func(
+					context.Context,
+					RemoveMemberInput,
+				) error {
+					return fmt.Errorf("remove: %w", ErrMemberInUse)
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			service := newGroupServiceForTest(
+				t,
+				test.store,
+				bytes.NewReader(nil),
+			)
+			err := test.call(service)
+			if !errors.Is(err, test.wantError) {
+				t.Errorf("error = %v, want %v", err, test.wantError)
+			}
+		})
 	}
 }
 

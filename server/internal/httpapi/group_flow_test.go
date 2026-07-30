@@ -220,6 +220,245 @@ func TestGroupFlowWithTwoIndependentCookieJars(t *testing.T) {
 			t.Errorf("%s detail members = %+v", name, detail.Members)
 		}
 	}
+
+	memberJoinCodeRequest, err := http.NewRequest(
+		http.MethodGet,
+		serverURL+"/api/groups/"+firstResponse.Group.ID+"/join-code",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewRequest member join code: %v", err)
+	}
+	memberJoinCodeStatus, memberJoinCodeBody := flowDo(
+		t,
+		bobClient,
+		memberJoinCodeRequest,
+	)
+	if memberJoinCodeStatus != http.StatusForbidden {
+		t.Errorf(
+			"member join code = %d %s, want 403",
+			memberJoinCodeStatus,
+			memberJoinCodeBody,
+		)
+	}
+
+	ownerJoinCodeRequest, err := http.NewRequest(
+		http.MethodGet,
+		serverURL+"/api/groups/"+firstResponse.Group.ID+"/join-code",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewRequest owner join code: %v", err)
+	}
+	ownerJoinCodeStatus, ownerJoinCodeBody := flowDo(
+		t,
+		aliceClient,
+		ownerJoinCodeRequest,
+	)
+	if ownerJoinCodeStatus != http.StatusOK {
+		t.Fatalf(
+			"owner join code = %d %s",
+			ownerJoinCodeStatus,
+			ownerJoinCodeBody,
+		)
+	}
+	var ownerJoinCode groupJoinCodeResponse
+	if err := decodeFlowJSON(ownerJoinCodeBody, &ownerJoinCode); err != nil {
+		t.Fatalf("decode owner join code: %v", err)
+	}
+	if ownerJoinCode.JoinCode != firstJoinCode {
+		t.Errorf(
+			"owner join code = %q, want %q",
+			ownerJoinCode.JoinCode,
+			firstJoinCode,
+		)
+	}
+
+	memberRenameRequest := groupFlowUnsafeRequest(
+		t,
+		http.MethodPatch,
+		serverURL+"/api/groups/"+firstResponse.Group.ID,
+		strings.NewReader(`{"name":"Member Rename"}`),
+		bobCSRF,
+	)
+	memberRenameStatus, memberRenameBody := flowDo(
+		t,
+		bobClient,
+		memberRenameRequest,
+	)
+	if memberRenameStatus != http.StatusForbidden {
+		t.Errorf(
+			"member rename = %d %s, want 403",
+			memberRenameStatus,
+			memberRenameBody,
+		)
+	}
+
+	ownerRenameRequest := groupFlowUnsafeRequest(
+		t,
+		http.MethodPatch,
+		serverURL+"/api/groups/"+firstResponse.Group.ID,
+		strings.NewReader(`{"name":" Coastal Trip "}`),
+		aliceCSRF,
+	)
+	ownerRenameStatus, ownerRenameBody := flowDo(
+		t,
+		aliceClient,
+		ownerRenameRequest,
+	)
+	if ownerRenameStatus != http.StatusOK {
+		t.Fatalf(
+			"owner rename = %d %s",
+			ownerRenameStatus,
+			ownerRenameBody,
+		)
+	}
+	var ownerRename groupResponseEnvelope
+	if err := decodeFlowJSON(ownerRenameBody, &ownerRename); err != nil {
+		t.Fatalf("decode owner rename: %v", err)
+	}
+	if ownerRename.Group.Name != "Coastal Trip" ||
+		ownerRename.Group.MemberCount != 2 {
+		t.Errorf("owner rename group = %+v", ownerRename.Group)
+	}
+
+	memberDissolveRequest := groupFlowUnsafeRequest(
+		t,
+		http.MethodDelete,
+		serverURL+"/api/groups/"+firstResponse.Group.ID,
+		nil,
+		bobCSRF,
+	)
+	memberDissolveStatus, memberDissolveBody := flowDo(
+		t,
+		bobClient,
+		memberDissolveRequest,
+	)
+	if memberDissolveStatus != http.StatusForbidden {
+		t.Errorf(
+			"member dissolve = %d %s, want 403",
+			memberDissolveStatus,
+			memberDissolveBody,
+		)
+	}
+
+	memberRemoveRequest := groupFlowUnsafeRequest(
+		t,
+		http.MethodDelete,
+		serverURL+"/api/groups/"+
+			firstResponse.Group.ID+
+			"/members/"+
+			groupHandlerActorID,
+		nil,
+		bobCSRF,
+	)
+	memberRemoveStatus, memberRemoveBody := flowDo(
+		t,
+		bobClient,
+		memberRemoveRequest,
+	)
+	if memberRemoveStatus != http.StatusForbidden {
+		t.Errorf(
+			"member removal = %d %s, want 403",
+			memberRemoveStatus,
+			memberRemoveBody,
+		)
+	}
+
+	ownerRemoveRequest := groupFlowUnsafeRequest(
+		t,
+		http.MethodDelete,
+		serverURL+"/api/groups/"+
+			firstResponse.Group.ID+
+			"/members/"+
+			groupHandlerOtherID,
+		nil,
+		aliceCSRF,
+	)
+	ownerRemoveStatus, ownerRemoveBody := flowDo(
+		t,
+		aliceClient,
+		ownerRemoveRequest,
+	)
+	if ownerRemoveStatus != http.StatusNoContent ||
+		len(ownerRemoveBody) != 0 {
+		t.Fatalf(
+			"owner removal = %d %q, want empty 204",
+			ownerRemoveStatus,
+			ownerRemoveBody,
+		)
+	}
+
+	if removedGroups := groupFlowList(t, bobClient, serverURL); len(removedGroups) != 0 {
+		t.Errorf("removed member groups = %+v, want none", removedGroups)
+	}
+	removedDetailRequest, err := http.NewRequest(
+		http.MethodGet,
+		serverURL+"/api/groups/"+firstResponse.Group.ID,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewRequest removed member detail: %v", err)
+	}
+	removedDetailStatus, removedDetailBody := flowDo(
+		t,
+		bobClient,
+		removedDetailRequest,
+	)
+	if removedDetailStatus != http.StatusNotFound {
+		t.Errorf(
+			"removed member detail = %d %s, want 404",
+			removedDetailStatus,
+			removedDetailBody,
+		)
+	}
+
+	ownerDissolveRequest := groupFlowUnsafeRequest(
+		t,
+		http.MethodDelete,
+		serverURL+"/api/groups/"+firstResponse.Group.ID,
+		nil,
+		aliceCSRF,
+	)
+	ownerDissolveStatus, ownerDissolveBody := flowDo(
+		t,
+		aliceClient,
+		ownerDissolveRequest,
+	)
+	if ownerDissolveStatus != http.StatusNoContent ||
+		len(ownerDissolveBody) != 0 {
+		t.Fatalf(
+			"owner dissolve = %d %q, want empty 204",
+			ownerDissolveStatus,
+			ownerDissolveBody,
+		)
+	}
+
+	repeatedDissolveRequest := groupFlowUnsafeRequest(
+		t,
+		http.MethodDelete,
+		serverURL+"/api/groups/"+firstResponse.Group.ID,
+		nil,
+		aliceCSRF,
+	)
+	repeatedDissolveStatus, repeatedDissolveBody := flowDo(
+		t,
+		aliceClient,
+		repeatedDissolveRequest,
+	)
+	if repeatedDissolveStatus != http.StatusNotFound {
+		t.Errorf(
+			"repeated dissolve = %d %s, want 404",
+			repeatedDissolveStatus,
+			repeatedDissolveBody,
+		)
+	}
+
+	remainingGroups := groupFlowList(t, aliceClient, serverURL)
+	if len(remainingGroups) != 1 ||
+		remainingGroups[0].Name != "Private Group" {
+		t.Errorf("owner groups after dissolution = %+v", remainingGroups)
+	}
 }
 
 func newGroupFlowClient(
@@ -326,6 +565,7 @@ type flowGroupStore struct {
 type flowGroupRecord struct {
 	input       groups.NewGroup
 	memberships map[string]time.Time
+	dissolved   bool
 }
 
 func newFlowGroupStore(users map[string]auth.User) *flowGroupStore {
@@ -364,6 +604,9 @@ func (store *flowGroupStore) ListGroups(
 	defer store.mu.Unlock()
 	result := make([]groups.Group, 0)
 	for _, record := range store.records {
+		if record.dissolved {
+			continue
+		}
 		if _, visible := record.memberships[actorID]; visible {
 			result = append(result, flowGroupSummary(record, actorID))
 		}
@@ -388,6 +631,9 @@ func (store *flowGroupStore) JoinGroup(
 		return groups.Group{}, groups.ErrNotFound
 	}
 	record := store.records[groupID]
+	if record.dissolved {
+		return groups.Group{}, groups.ErrNotFound
+	}
 	if _, active := record.memberships[input.UserID]; !active {
 		record.memberships[input.UserID] = input.JoinedAt
 	}
@@ -402,7 +648,7 @@ func (store *flowGroupStore) GetGroup(
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	record, found := store.records[groupID]
-	if !found {
+	if !found || record.dissolved {
 		return groups.Detail{}, groups.ErrNotFound
 	}
 	if _, visible := record.memberships[actorID]; !visible {
@@ -438,6 +684,87 @@ func (store *flowGroupStore) GetGroup(
 		Group:   flowGroupSummary(record, actorID),
 		Members: members,
 	}, nil
+}
+
+func (store *flowGroupStore) RenameGroup(
+	_ context.Context,
+	input groups.RenameGroupInput,
+) (groups.Group, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	record, err := store.ownerRecord(input.ActorID, input.GroupID)
+	if err != nil {
+		return groups.Group{}, err
+	}
+	record.input.Name = input.Name
+	record.input.UpdatedAt = input.UpdatedAt
+	return flowGroupSummary(record, input.ActorID), nil
+}
+
+func (store *flowGroupStore) DissolveGroup(
+	_ context.Context,
+	input groups.DissolveGroupInput,
+) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	record, err := store.ownerRecord(input.ActorID, input.GroupID)
+	if err != nil {
+		return err
+	}
+	record.dissolved = true
+	record.input.UpdatedAt = input.DissolvedAt
+	return nil
+}
+
+func (store *flowGroupStore) GetJoinCode(
+	_ context.Context,
+	actorID string,
+	groupID string,
+) (string, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	record, err := store.ownerRecord(actorID, groupID)
+	if err != nil {
+		return "", err
+	}
+	return record.input.JoinCode, nil
+}
+
+func (store *flowGroupStore) RemoveMember(
+	_ context.Context,
+	input groups.RemoveMemberInput,
+) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	record, err := store.ownerRecord(input.ActorID, input.GroupID)
+	if err != nil {
+		return err
+	}
+	if input.UserID == record.input.OwnerUserID {
+		return groups.ErrForbidden
+	}
+	if _, found := record.memberships[input.UserID]; !found {
+		return groups.ErrNotFound
+	}
+	delete(record.memberships, input.UserID)
+	return nil
+}
+
+func (store *flowGroupStore) ownerRecord(
+	actorID string,
+	groupID string,
+) (*flowGroupRecord, error) {
+	record, found := store.records[groupID]
+	if !found || record.dissolved {
+		return nil, groups.ErrNotFound
+	}
+	if _, active := record.memberships[actorID]; !active {
+		return nil, groups.ErrNotFound
+	}
+	if record.input.OwnerUserID != actorID {
+		return nil, groups.ErrForbidden
+	}
+	return record, nil
 }
 
 func (store *flowGroupStore) joinCode(t *testing.T, groupID string) string {

@@ -128,11 +128,13 @@ func errorFor(err error) errorSpec {
 		return csrfRequiredError
 	case errors.Is(err, auth.ErrCSRFInvalid):
 		return csrfInvalidError
-	case errors.Is(err, ErrForbidden):
+	case errors.Is(err, ErrForbidden), errors.Is(err, groups.ErrForbidden):
 		return forbiddenError
 	case errors.Is(err, ErrNotFound), errors.Is(err, groups.ErrNotFound):
 		return notFoundError
-	case errors.Is(err, ErrConflict), errors.Is(err, auth.ErrDuplicateEmail):
+	case errors.Is(err, ErrConflict),
+		errors.Is(err, auth.ErrDuplicateEmail),
+		errors.Is(err, groups.ErrMemberInUse):
 		return conflictError
 	default:
 		return internalError
