@@ -18,6 +18,31 @@ export const copy = {
 		unexpectedDescription: 'Try again. If the problem continues, return to Settled.',
 		retry: 'Try again'
 	},
+	expenseDraft: {
+		amountRequired: 'Enter an amount.',
+		amountInvalid: 'Enter a dollar amount with up to two decimal places.',
+		amountPositive: 'Amount must be greater than $0.00.',
+		amountTooLarge: 'Amount is too large.',
+		descriptionRequired: 'Enter a description.',
+		descriptionTooLong: 'Description must not exceed 240 characters.',
+		payerRequired: 'Choose who paid.',
+		dateInvalid: 'Enter a valid date in YYYY-MM-DD format.',
+		participantsRequired: 'Choose at least one participant.',
+		participantInvalid: 'Each participant must have a user ID.',
+		participantDuplicate: 'Each participant can appear only once.',
+		equalZeroShare: 'The expense must include at least one cent per participant.',
+		exactShareRequired: 'Enter an amount for each participant.',
+		exactShareInvalid: 'Enter each share as a dollar amount with up to two decimal places.',
+		exactSharePositive: 'Each exact share must be at least $0.01.',
+		exactShareTooLarge: 'An exact share is too large.',
+		exactTotalInvalid: 'Exact shares must add up to the expense amount.',
+		percentageRequired: 'Enter a percentage for each participant.',
+		percentageInvalid: 'Enter each percentage with up to two decimal places.',
+		percentagePositive: 'Each percentage must be greater than 0%.',
+		percentageTooLarge: 'A percentage cannot exceed 100%.',
+		percentageTotalInvalid: 'Percentages must add up to 100%.',
+		percentageZeroShare: 'Each percentage must produce at least a one-cent share.'
+	},
 	routes: {
 		root: {
 			title: 'Opening your ledger',
