@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"log/slog"
 	"sync"
@@ -16,8 +17,47 @@ func (validate sessionValidatorFunc) Validate(token string) (auth.Session, error
 	return validate(token)
 }
 
+type fakeAuthService struct {
+	register func(context.Context, auth.RegisterInput) (auth.AuthResult, error)
+	login    func(context.Context, string, string) (auth.AuthResult, error)
+	findUser func(context.Context, string) (auth.User, error)
+}
+
+func (service fakeAuthService) Register(
+	ctx context.Context,
+	input auth.RegisterInput,
+) (auth.AuthResult, error) {
+	if service.register == nil {
+		return auth.AuthResult{}, errors.New("unexpected Register call")
+	}
+	return service.register(ctx, input)
+}
+
+func (service fakeAuthService) Login(
+	ctx context.Context,
+	email string,
+	password string,
+) (auth.AuthResult, error) {
+	if service.login == nil {
+		return auth.AuthResult{}, errors.New("unexpected Login call")
+	}
+	return service.login(ctx, email, password)
+}
+
+func (service fakeAuthService) FindUser(
+	ctx context.Context,
+	userID string,
+) (auth.User, error) {
+	if service.findUser == nil {
+		return auth.User{}, errors.New("unexpected FindUser call")
+	}
+	return service.findUser(ctx, userID)
+}
+
 type fakeCSRFProtector struct {
 	issueOrReuse          func(string, *auth.Session) (auth.CSRFBinding, error)
+	rotateAnonymous       func() (auth.CSRFBinding, error)
+	rotateAuthenticated   func(auth.Session) (auth.CSRFBinding, error)
 	validateAnonymous     func(string, string) error
 	validateAuthenticated func(string, string, auth.Session) error
 }
@@ -30,6 +70,22 @@ func (protector fakeCSRFProtector) IssueOrReuse(
 		return auth.CSRFBinding{}, errors.New("unexpected IssueOrReuse call")
 	}
 	return protector.issueOrReuse(cookie, session)
+}
+
+func (protector fakeCSRFProtector) RotateAnonymous() (auth.CSRFBinding, error) {
+	if protector.rotateAnonymous == nil {
+		return auth.CSRFBinding{}, errors.New("unexpected RotateAnonymous call")
+	}
+	return protector.rotateAnonymous()
+}
+
+func (protector fakeCSRFProtector) RotateAuthenticated(
+	session auth.Session,
+) (auth.CSRFBinding, error) {
+	if protector.rotateAuthenticated == nil {
+		return auth.CSRFBinding{}, errors.New("unexpected RotateAuthenticated call")
+	}
+	return protector.rotateAuthenticated(session)
 }
 
 func (protector fakeCSRFProtector) ValidateAnonymous(cookie, token string) error {
@@ -66,6 +122,27 @@ func (reader *repeatReader) Read(destination []byte) (int, error) {
 
 func defaultTestOptions() Options {
 	return Options{
+		Auth: fakeAuthService{
+			register: func(
+				context.Context,
+				auth.RegisterInput,
+			) (auth.AuthResult, error) {
+				return auth.AuthResult{}, errors.New("unexpected Register call")
+			},
+			login: func(
+				context.Context,
+				string,
+				string,
+			) (auth.AuthResult, error) {
+				return auth.AuthResult{}, errors.New("unexpected Login call")
+			},
+			findUser: func(
+				_ context.Context,
+				userID string,
+			) (auth.User, error) {
+				return auth.User{ID: userID}, nil
+			},
+		},
 		Sessions: sessionValidatorFunc(func(string) (auth.Session, error) {
 			return auth.Session{}, auth.ErrUnauthenticated
 		}),
@@ -74,6 +151,22 @@ func defaultTestOptions() Options {
 				return auth.CSRFBinding{
 					CookieValue:   "test-cookie",
 					Token:         "v1.test-token",
+					MaxAgeSeconds: 3600,
+				}, nil
+			},
+			rotateAnonymous: func() (auth.CSRFBinding, error) {
+				return auth.CSRFBinding{
+					CookieValue:   "rotated-anonymous-cookie",
+					Token:         "v1.rotated-anonymous-token",
+					MaxAgeSeconds: 3600,
+				}, nil
+			},
+			rotateAuthenticated: func(
+				auth.Session,
+			) (auth.CSRFBinding, error) {
+				return auth.CSRFBinding{
+					CookieValue:   "rotated-session-cookie",
+					Token:         "v1.rotated-session-token",
 					MaxAgeSeconds: 3600,
 				}, nil
 			},

@@ -19,6 +19,7 @@ import (
 	"github.com/Fyy10/settled/server/internal/clock"
 	"github.com/Fyy10/settled/server/internal/config"
 	"github.com/Fyy10/settled/server/internal/httpapi"
+	"github.com/Fyy10/settled/server/internal/store"
 )
 
 const (
@@ -88,10 +89,30 @@ func run(ctx context.Context, output io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("configure CSRF protection: %w", err)
 	}
+	passwordHasher, err := auth.NewPasswordHasher()
+	if err != nil {
+		return fmt.Errorf("configure password authentication: %w", err)
+	}
+	applicationStore := store.New(db)
+	authService, err := auth.NewService(
+		applicationStore,
+		passwordHasher,
+		sessionManager,
+		systemClock,
+	)
+	if err != nil {
+		return fmt.Errorf("configure authentication service: %w", err)
+	}
 	api, err := httpapi.New(db, logger, httpapi.Options{
 		AllowedOrigins: cfg.AllowedOrigins,
+		Auth:           authService,
 		Sessions:       sessionManager,
 		CSRF:           csrfManager,
+		SessionCookies: auth.NewSessionCookies(
+			cfg.CookieDomain,
+			cfg.CookieSecure,
+			cfg.CookieSameSite,
+		),
 		CSRFCookies: auth.NewCSRFCookies(
 			cfg.CookieDomain,
 			cfg.CookieSecure,

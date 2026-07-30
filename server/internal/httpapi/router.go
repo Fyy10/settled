@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"path"
 	"strings"
@@ -118,9 +119,14 @@ func (probe *statusProbe) Write(value []byte) (int, error) {
 
 func (a *API) withOptionalSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		session, valid := a.sessionFromRequest(request)
-		if valid {
-			request = withSession(request, session)
+		session, user, err := a.authenticationFromRequest(request)
+		switch {
+		case err == nil:
+			request = withAuthentication(request, session, user)
+		case errors.Is(err, auth.ErrUnauthenticated):
+		default:
+			a.handleError(w, request, err)
+			return
 		}
 		next.ServeHTTP(w, request)
 	})
@@ -128,13 +134,34 @@ func (a *API) withOptionalSession(next http.Handler) http.Handler {
 
 func (a *API) withRequiredSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		session, valid := a.sessionFromRequest(request)
-		if !valid {
+		session, user, err := a.authenticationFromRequest(request)
+		if errors.Is(err, auth.ErrUnauthenticated) {
 			a.writeError(w, unauthorizedError)
 			return
 		}
-		next.ServeHTTP(w, withSession(request, session))
+		if err != nil {
+			a.handleError(w, request, err)
+			return
+		}
+		next.ServeHTTP(w, withAuthentication(request, session, user))
 	})
+}
+
+func (a *API) authenticationFromRequest(
+	request *http.Request,
+) (auth.Session, auth.User, error) {
+	session, valid := a.sessionFromRequest(request)
+	if !valid {
+		return auth.Session{}, auth.User{}, auth.ErrUnauthenticated
+	}
+	user, err := a.authService.FindUser(request.Context(), session.UserID)
+	if errors.Is(err, auth.ErrUserNotFound) {
+		return auth.Session{}, auth.User{}, auth.ErrUnauthenticated
+	}
+	if err != nil {
+		return auth.Session{}, auth.User{}, err
+	}
+	return session, user, nil
 }
 
 func (a *API) sessionFromRequest(request *http.Request) (auth.Session, bool) {
@@ -149,15 +176,24 @@ func (a *API) sessionFromRequest(request *http.Request) (auth.Session, bool) {
 	return session, true
 }
 
-func withSession(request *http.Request, session auth.Session) *http.Request {
+func withAuthentication(
+	request *http.Request,
+	session auth.Session,
+	user auth.User,
+) *http.Request {
 	state := requestStateFromContext(request.Context())
-	state.userID = session.UserID
-	return request.WithContext(
-		contextWithSession(request.Context(), session),
-	)
+	state.userID = user.ID
+	ctx := contextWithSession(request.Context(), session)
+	ctx = contextWithUser(ctx, user)
+	return request.WithContext(ctx)
 }
 
 func sessionFromContext(request *http.Request) (auth.Session, bool) {
 	session, ok := request.Context().Value(sessionContextKey{}).(auth.Session)
 	return session, ok
+}
+
+func userFromContext(request *http.Request) (auth.User, bool) {
+	user, ok := request.Context().Value(userContextKey{}).(auth.User)
+	return user, ok
 }

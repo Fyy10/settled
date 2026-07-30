@@ -16,13 +16,7 @@ var (
 	ErrConflict     = errors.New("conflict")
 )
 
-type ValidationError struct {
-	Fields map[string]string
-}
-
-func (validation *ValidationError) Error() string {
-	return "validation failed"
-}
+type ValidationError = auth.ValidationError
 
 type errorEnvelope struct {
 	Error errorBody `json:"error"`
@@ -119,7 +113,10 @@ func errorFor(err error) errorSpec {
 		return spec
 	case errors.Is(err, ErrBadRequest):
 		return badRequestError
-	case errors.Is(err, ErrUnauthorized), errors.Is(err, auth.ErrUnauthenticated):
+	case errors.Is(err, ErrUnauthorized),
+		errors.Is(err, auth.ErrUnauthenticated),
+		errors.Is(err, auth.ErrInvalidCredentials),
+		errors.Is(err, auth.ErrUserNotFound):
 		return unauthorizedError
 	case errors.Is(err, auth.ErrCSRFRequired):
 		return csrfRequiredError
@@ -129,7 +126,7 @@ func errorFor(err error) errorSpec {
 		return forbiddenError
 	case errors.Is(err, ErrNotFound):
 		return notFoundError
-	case errors.Is(err, ErrConflict):
+	case errors.Is(err, ErrConflict), errors.Is(err, auth.ErrDuplicateEmail):
 		return conflictError
 	default:
 		return internalError

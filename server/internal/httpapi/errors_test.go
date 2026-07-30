@@ -41,6 +41,18 @@ func TestErrorMapping(t *testing.T) {
 			wantCode:   "unauthorized",
 		},
 		{
+			name:       "invalid credentials",
+			err:        auth.ErrInvalidCredentials,
+			wantStatus: http.StatusUnauthorized,
+			wantCode:   "unauthorized",
+		},
+		{
+			name:       "deleted authenticated user",
+			err:        auth.ErrUserNotFound,
+			wantStatus: http.StatusUnauthorized,
+			wantCode:   "unauthorized",
+		},
+		{
 			name:       "forbidden",
 			err:        ErrForbidden,
 			wantStatus: http.StatusForbidden,
@@ -67,6 +79,12 @@ func TestErrorMapping(t *testing.T) {
 		{
 			name:       "conflict",
 			err:        ErrConflict,
+			wantStatus: http.StatusConflict,
+			wantCode:   "conflict",
+		},
+		{
+			name:       "duplicate email",
+			err:        auth.ErrDuplicateEmail,
 			wantStatus: http.StatusConflict,
 			wantCode:   "conflict",
 		},

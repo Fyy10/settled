@@ -25,6 +25,7 @@ const (
 type requestStateContextKey struct{}
 type requestOriginContextKey struct{}
 type sessionContextKey struct{}
+type userContextKey struct{}
 
 type requestState struct {
 	requestID    string
