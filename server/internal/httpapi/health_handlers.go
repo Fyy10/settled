@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -36,9 +35,7 @@ func (a *API) ready(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) writeHealth(w http.ResponseWriter, status int, healthStatus string) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(healthResponse{Status: healthStatus}); err != nil {
+	if err := writeJSON(w, status, healthResponse{Status: healthStatus}); err != nil {
 		a.logger.Error("encode health response", slog.Any("error", err))
 	}
 }

@@ -15,6 +15,8 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/Fyy10/settled/server/internal/auth"
+	"github.com/Fyy10/settled/server/internal/clock"
 	"github.com/Fyy10/settled/server/internal/config"
 	"github.com/Fyy10/settled/server/internal/httpapi"
 )
@@ -77,7 +79,28 @@ func run(ctx context.Context, output io.Writer) error {
 		return errors.New("database startup check failed")
 	}
 
-	api := httpapi.New(db, logger)
+	systemClock := clock.System{}
+	sessionManager, err := auth.NewSessionManager(cfg.JWTSecret, systemClock)
+	if err != nil {
+		return fmt.Errorf("configure session authentication: %w", err)
+	}
+	csrfManager, err := auth.NewCSRFManager(cfg.CSRFSecret, systemClock)
+	if err != nil {
+		return fmt.Errorf("configure CSRF protection: %w", err)
+	}
+	api, err := httpapi.New(db, logger, httpapi.Options{
+		AllowedOrigins: cfg.AllowedOrigins,
+		Sessions:       sessionManager,
+		CSRF:           csrfManager,
+		CSRFCookies: auth.NewCSRFCookies(
+			cfg.CookieDomain,
+			cfg.CookieSecure,
+			cfg.CookieSameSite,
+		),
+	})
+	if err != nil {
+		return fmt.Errorf("configure HTTP API: %w", err)
+	}
 	server := newHTTPServer(cfg, api.Handler())
 
 	logger.Info(

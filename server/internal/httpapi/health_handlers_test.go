@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -24,7 +23,7 @@ func TestLive(t *testing.T) {
 	t.Parallel()
 
 	pingCalls := 0
-	api, _ := testAPI(pingerFunc(func(context.Context) error {
+	api, _ := testAPI(t, pingerFunc(func(context.Context) error {
 		pingCalls++
 		return errors.New("liveness must not ping the database")
 	}))
@@ -66,7 +65,7 @@ func TestReady(t *testing.T) {
 			t.Parallel()
 
 			pingCalls := 0
-			api, _ := testAPI(pingerFunc(func(context.Context) error {
+			api, _ := testAPI(t, pingerFunc(func(context.Context) error {
 				pingCalls++
 				return test.pingError
 			}))
@@ -88,7 +87,7 @@ func TestReadyUsesTwoSecondChildDeadline(t *testing.T) {
 
 	requestStarted := time.Now()
 	var receivedDeadline time.Time
-	api, _ := testAPI(pingerFunc(func(ctx context.Context) error {
+	api, _ := testAPI(t, pingerFunc(func(ctx context.Context) error {
 		var ok bool
 		receivedDeadline, ok = ctx.Deadline()
 		if !ok {
@@ -115,7 +114,7 @@ func TestReadyLogsSanitizedDatabaseError(t *testing.T) {
 	privateError := errors.New(
 		"connect postgres://private-user:private-password@secret-host/database",
 	)
-	api, logs := testAPI(pingerFunc(func(context.Context) error {
+	api, logs := testAPI(t, pingerFunc(func(context.Context) error {
 		return privateError
 	}))
 	request := httptest.NewRequest(http.MethodGet, "/api/health/ready", nil)
@@ -179,10 +178,9 @@ func TestSafeDatabaseError(t *testing.T) {
 	}
 }
 
-func testAPI(pinger Pinger) (*API, *bytes.Buffer) {
-	var logs bytes.Buffer
-	logger := slog.New(slog.NewJSONHandler(&logs, nil))
-	return New(pinger, logger), &logs
+func testAPI(t *testing.T, pinger Pinger) (*API, *bytes.Buffer) {
+	t.Helper()
+	return newTestAPI(t, pinger, defaultTestOptions())
 }
 
 func assertHealthResponse(
