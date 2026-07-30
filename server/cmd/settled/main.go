@@ -22,6 +22,7 @@ import (
 	"github.com/Fyy10/settled/server/internal/groups"
 	"github.com/Fyy10/settled/server/internal/httpapi"
 	"github.com/Fyy10/settled/server/internal/repayments"
+	"github.com/Fyy10/settled/server/internal/settlements"
 	"github.com/Fyy10/settled/server/internal/store"
 )
 
@@ -118,12 +119,20 @@ func run(ctx context.Context, output io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("configure repayment service: %w", err)
 	}
+	settlementService, err := settlements.NewService(
+		applicationStore,
+		settlements.PairwiseCalculator{},
+	)
+	if err != nil {
+		return fmt.Errorf("configure settlement service: %w", err)
+	}
 	api, err := httpapi.New(db, logger, httpapi.Options{
 		AllowedOrigins: cfg.AllowedOrigins,
 		Auth:           authService,
 		Groups:         groupService,
 		Expenses:       expenseService,
 		Repayments:     repaymentService,
+		Settlements:    settlementService,
 		Sessions:       sessionManager,
 		CSRF:           csrfManager,
 		SessionCookies: auth.NewSessionCookies(

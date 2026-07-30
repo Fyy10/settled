@@ -12,6 +12,7 @@ import (
 	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
 	"github.com/Fyy10/settled/server/internal/repayments"
+	"github.com/Fyy10/settled/server/internal/settlements"
 )
 
 type Pinger interface {
@@ -77,6 +78,10 @@ type RepaymentService interface {
 	Delete(context.Context, string, string, string) error
 }
 
+type SettlementService interface {
+	List(context.Context, string, string) (settlements.Result, error)
+}
+
 type CSRFProtector interface {
 	IssueOrReuse(string, *auth.Session) (auth.CSRFBinding, error)
 	RotateAnonymous() (auth.CSRFBinding, error)
@@ -91,6 +96,7 @@ type Options struct {
 	Groups         GroupService
 	Expenses       ExpenseService
 	Repayments     RepaymentService
+	Settlements    SettlementService
 	Sessions       SessionValidator
 	CSRF           CSRFProtector
 	SessionCookies auth.SessionCookies
@@ -99,20 +105,21 @@ type Options struct {
 }
 
 type API struct {
-	db               Pinger
-	logger           *slog.Logger
-	authService      AuthService
-	groupService     GroupService
-	expenseService   ExpenseService
-	repaymentService RepaymentService
-	sessions         SessionValidator
-	csrf             CSRFProtector
-	sessionCookies   auth.SessionCookies
-	csrfCookies      auth.CSRFCookies
-	origins          OriginPolicy
-	requestIDBytes   io.Reader
-	mux              *http.ServeMux
-	handler          http.Handler
+	db                Pinger
+	logger            *slog.Logger
+	authService       AuthService
+	groupService      GroupService
+	expenseService    ExpenseService
+	repaymentService  RepaymentService
+	settlementService SettlementService
+	sessions          SessionValidator
+	csrf              CSRFProtector
+	sessionCookies    auth.SessionCookies
+	csrfCookies       auth.CSRFCookies
+	origins           OriginPolicy
+	requestIDBytes    io.Reader
+	mux               *http.ServeMux
+	handler           http.Handler
 }
 
 func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
@@ -122,6 +129,7 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 		options.Groups == nil ||
 		options.Expenses == nil ||
 		options.Repayments == nil ||
+		options.Settlements == nil ||
 		options.Sessions == nil ||
 		options.CSRF == nil {
 		return nil, errors.New("invalid HTTP API configuration")
@@ -137,19 +145,20 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 	}
 
 	api := &API{
-		db:               db,
-		logger:           logger,
-		authService:      options.Auth,
-		groupService:     options.Groups,
-		expenseService:   options.Expenses,
-		repaymentService: options.Repayments,
-		sessions:         options.Sessions,
-		csrf:             options.CSRF,
-		sessionCookies:   options.SessionCookies,
-		csrfCookies:      options.CSRFCookies,
-		origins:          origins,
-		requestIDBytes:   requestIDBytes,
-		mux:              http.NewServeMux(),
+		db:                db,
+		logger:            logger,
+		authService:       options.Auth,
+		groupService:      options.Groups,
+		expenseService:    options.Expenses,
+		repaymentService:  options.Repayments,
+		settlementService: options.Settlements,
+		sessions:          options.Sessions,
+		csrf:              options.CSRF,
+		sessionCookies:    options.SessionCookies,
+		csrfCookies:       options.CSRFCookies,
+		origins:           origins,
+		requestIDBytes:    requestIDBytes,
+		mux:               http.NewServeMux(),
 	}
 	api.register("GET /api/health/live", routePublic, api.live)
 	api.register("GET /api/health/ready", routePublic, api.ready)
@@ -223,6 +232,11 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 		"DELETE /api/groups/{groupId}/repayments/{repaymentId}",
 		routeAuthenticatedUnsafe,
 		api.deleteRepayment,
+	)
+	api.register(
+		"GET /api/groups/{groupId}/settlements",
+		routeAuthenticated,
+		api.listSettlements,
 	)
 	api.handler = api.withPanicRecovery(
 		api.withRequestIDAndAccessLog(

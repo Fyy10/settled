@@ -13,6 +13,7 @@ import (
 	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
 	"github.com/Fyy10/settled/server/internal/repayments"
+	"github.com/Fyy10/settled/server/internal/settlements"
 )
 
 func TestErrorMapping(t *testing.T) {
@@ -94,6 +95,12 @@ func TestErrorMapping(t *testing.T) {
 		{
 			name:       "hidden repayment",
 			err:        repayments.ErrNotFound,
+			wantStatus: http.StatusNotFound,
+			wantCode:   "not_found",
+		},
+		{
+			name:       "hidden settlements",
+			err:        settlements.ErrNotFound,
 			wantStatus: http.StatusNotFound,
 			wantCode:   "not_found",
 		},

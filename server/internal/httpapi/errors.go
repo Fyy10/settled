@@ -9,6 +9,7 @@ import (
 	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
 	"github.com/Fyy10/settled/server/internal/repayments"
+	"github.com/Fyy10/settled/server/internal/settlements"
 )
 
 var (
@@ -145,7 +146,8 @@ func errorFor(err error) errorSpec {
 	case errors.Is(err, ErrNotFound),
 		errors.Is(err, groups.ErrNotFound),
 		errors.Is(err, expenses.ErrNotFound),
-		errors.Is(err, repayments.ErrNotFound):
+		errors.Is(err, repayments.ErrNotFound),
+		errors.Is(err, settlements.ErrNotFound):
 		return notFoundError
 	case errors.Is(err, ErrConflict),
 		errors.Is(err, auth.ErrDuplicateEmail),

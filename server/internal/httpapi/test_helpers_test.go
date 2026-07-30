@@ -12,6 +12,7 @@ import (
 	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
 	"github.com/Fyy10/settled/server/internal/repayments"
+	"github.com/Fyy10/settled/server/internal/settlements"
 )
 
 type sessionValidatorFunc func(string) (auth.Session, error)
@@ -91,6 +92,25 @@ type fakeRepaymentService struct {
 		repayments.MutationInput,
 	) (repayments.Repayment, error)
 	delete func(context.Context, string, string, string) error
+}
+
+type fakeSettlementService struct {
+	list func(
+		context.Context,
+		string,
+		string,
+	) (settlements.Result, error)
+}
+
+func (service fakeSettlementService) List(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+) (settlements.Result, error) {
+	if service.list == nil {
+		return settlements.Result{}, errors.New("unexpected settlement List call")
+	}
+	return service.list(ctx, actorID, groupID)
 }
 
 func (service fakeRepaymentService) List(
@@ -557,6 +577,17 @@ func defaultTestOptions() Options {
 			},
 			delete: func(context.Context, string, string, string) error {
 				return errors.New("unexpected repayment Delete call")
+			},
+		},
+		Settlements: fakeSettlementService{
+			list: func(
+				context.Context,
+				string,
+				string,
+			) (settlements.Result, error) {
+				return settlements.Result{}, errors.New(
+					"unexpected settlement List call",
+				)
 			},
 		},
 		Sessions: sessionValidatorFunc(func(string) (auth.Session, error) {
