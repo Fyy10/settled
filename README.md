@@ -34,7 +34,7 @@ the first-release scope.
 │   ├── lib/             Shared frontend components and utilities
 │   └── routes/          Frontend routes and global styles
 ├── static/              Static frontend assets
-├── server/              Go API process, configuration, and HTTP packages
+├── server/              Go API, PostgreSQL schema, and integration tooling
 ├── docs/                Product, architecture, API, backend, and frontend designs
 ├── docs/plans/          Ordered implementation tasks
 ├── package.json         Frontend scripts and dependencies
@@ -54,10 +54,8 @@ Current frontend development requires:
 Backend and database development requires:
 
 - Go 1.25.1, matching `server/go.mod`.
-- PostgreSQL.
-
-The schema and repository-managed database tooling have not been added yet.
-Task-specific database checks may also require Docker and the `psql` client.
+- PostgreSQL and the `psql` client for local schema application.
+- Docker, `psql`, and Go for the PostgreSQL integration suite.
 
 ## Install Frontend Dependencies
 
@@ -117,17 +115,28 @@ PostgreSQL will persist users, groups, memberships, expenses, splits, and
 repayments. It will also provide the active-ledger views used to verify
 settlement calculations.
 
-Database support has not been implemented yet:
+Apply the first-release schema to an empty PostgreSQL database from the
+repository root:
 
-- There is no schema or migration file.
-- There is no database creation or schema-application script.
-- There is no integration-test script.
-- There is no Docker or Compose configuration.
-- The API connects to PostgreSQL for startup and readiness checks, but no
-  application tables or queries exist yet.
+```sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/sql/schema.sql
+```
 
-Start PostgreSQL independently using your preferred local installation. The
-schema task will document the exact application and integration-test commands.
+`schema.sql` is a fresh-database schema wrapped in one transaction. It is not
+an idempotent migration, and the API does not apply it automatically.
+
+Run the schema and Store integration suite from `server/`:
+
+```sh
+cd server
+./scripts/test-integration.sh
+```
+
+The script starts a uniquely named PostgreSQL 17 container without a persistent
+volume, applies the schema through the host `psql` client, runs the
+`integration`-tagged Go tests, and removes only that exact container when it
+finishes or is interrupted. It does not provide persistent local PostgreSQL or
+deployment container configuration.
 
 ## Configuration
 
@@ -155,7 +164,7 @@ files except explicit example and test templates.
 | Frontend starter | Present; development, check, build, and preview scripts exist |
 | Frontend tests | Not implemented; no `pnpm test` script |
 | Go API | Runnable health service at `server/cmd/settled` with unit and race tests |
-| PostgreSQL schema and scripts | Not implemented |
+| PostgreSQL schema and scripts | Fresh schema and ephemeral integration harness present |
 | Containers and deployment | Not implemented |
 
 The design documents in `docs/` define the intended first release. The
