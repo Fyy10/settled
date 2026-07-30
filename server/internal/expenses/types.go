@@ -1,5 +1,11 @@
 package expenses
 
+import (
+	"context"
+	"errors"
+	"time"
+)
+
 // SplitMode identifies the requested split calculation.
 type SplitMode string
 
@@ -33,4 +39,88 @@ type PercentageSplitInput struct {
 type Split struct {
 	UserID      string
 	AmountCents int64
+}
+
+var ErrNotFound = errors.New("expense not found")
+
+type ValidationError struct {
+	Fields map[string]string
+}
+
+func (validation *ValidationError) Error() string {
+	return "validation failed"
+}
+
+type MutationInput struct {
+	PaidByUserID string
+	Description  string
+	AmountCents  int64
+	ExpenseDate  string
+	SplitInput   SplitInput
+}
+
+type Expense struct {
+	ID              string
+	GroupID         string
+	PaidByUserID    string
+	Description     string
+	AmountCents     int64
+	Currency        string
+	ExpenseDate     time.Time
+	CreatedByUserID string
+	Splits          []Split
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type MemberSummary struct {
+	UserID      string
+	DisplayName string
+}
+
+type ListResult struct {
+	Expenses []Expense
+	Members  []MemberSummary
+}
+
+type CreateInput struct {
+	ID           string
+	ActorID      string
+	GroupID      string
+	PaidByUserID string
+	Description  string
+	AmountCents  int64
+	Currency     string
+	ExpenseDate  time.Time
+	Splits       []Split
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type ReplaceInput struct {
+	ActorID      string
+	GroupID      string
+	ExpenseID    string
+	PaidByUserID string
+	Description  string
+	AmountCents  int64
+	Currency     string
+	ExpenseDate  time.Time
+	Splits       []Split
+	UpdatedAt    time.Time
+}
+
+type DeleteInput struct {
+	ActorID   string
+	GroupID   string
+	ExpenseID string
+	DeletedAt time.Time
+}
+
+type Store interface {
+	CreateExpense(context.Context, CreateInput) (Expense, error)
+	ReplaceExpense(context.Context, ReplaceInput) (Expense, error)
+	DeleteExpense(context.Context, DeleteInput) error
+	GetExpense(context.Context, string, string, string) (Expense, error)
+	ListExpenses(context.Context, string, string) (ListResult, error)
 }

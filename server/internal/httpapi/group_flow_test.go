@@ -100,6 +100,7 @@ func TestGroupFlowWithTwoIndependentCookieJars(t *testing.T) {
 				},
 			},
 			Groups:         groupService,
+			Expenses:       fakeExpenseService{},
 			Sessions:       sessions,
 			CSRF:           csrf,
 			SessionCookies: auth.NewSessionCookies("", false, http.SameSiteLaxMode),

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Fyy10/settled/server/internal/auth"
+	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
 )
 
@@ -33,6 +34,94 @@ type fakeGroupService struct {
 	dissolve     func(context.Context, string, string) error
 	getJoinCode  func(context.Context, string, string) (string, error)
 	removeMember func(context.Context, string, string, string) error
+}
+
+type fakeExpenseService struct {
+	list func(
+		context.Context,
+		string,
+		string,
+	) (expenses.ListResult, error)
+	create func(
+		context.Context,
+		string,
+		string,
+		expenses.MutationInput,
+	) (expenses.Expense, error)
+	get func(
+		context.Context,
+		string,
+		string,
+		string,
+	) (expenses.Expense, error)
+	replace func(
+		context.Context,
+		string,
+		string,
+		string,
+		expenses.MutationInput,
+	) (expenses.Expense, error)
+	delete func(context.Context, string, string, string) error
+}
+
+func (service fakeExpenseService) List(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+) (expenses.ListResult, error) {
+	if service.list == nil {
+		return expenses.ListResult{}, errors.New("unexpected expense List call")
+	}
+	return service.list(ctx, actorID, groupID)
+}
+
+func (service fakeExpenseService) Create(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+	input expenses.MutationInput,
+) (expenses.Expense, error) {
+	if service.create == nil {
+		return expenses.Expense{}, errors.New("unexpected expense Create call")
+	}
+	return service.create(ctx, actorID, groupID, input)
+}
+
+func (service fakeExpenseService) Get(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+	expenseID string,
+) (expenses.Expense, error) {
+	if service.get == nil {
+		return expenses.Expense{}, errors.New("unexpected expense Get call")
+	}
+	return service.get(ctx, actorID, groupID, expenseID)
+}
+
+func (service fakeExpenseService) Replace(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+	expenseID string,
+	input expenses.MutationInput,
+) (expenses.Expense, error) {
+	if service.replace == nil {
+		return expenses.Expense{}, errors.New("unexpected expense Replace call")
+	}
+	return service.replace(ctx, actorID, groupID, expenseID, input)
+}
+
+func (service fakeExpenseService) Delete(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+	expenseID string,
+) error {
+	if service.delete == nil {
+		return errors.New("unexpected expense Delete call")
+	}
+	return service.delete(ctx, actorID, groupID, expenseID)
 }
 
 func (service fakeGroupService) Create(
@@ -297,6 +386,43 @@ func defaultTestOptions() Options {
 				string,
 			) error {
 				return errors.New("unexpected group RemoveMember call")
+			},
+		},
+		Expenses: fakeExpenseService{
+			list: func(
+				context.Context,
+				string,
+				string,
+			) (expenses.ListResult, error) {
+				return expenses.ListResult{}, errors.New("unexpected expense List call")
+			},
+			create: func(
+				context.Context,
+				string,
+				string,
+				expenses.MutationInput,
+			) (expenses.Expense, error) {
+				return expenses.Expense{}, errors.New("unexpected expense Create call")
+			},
+			get: func(
+				context.Context,
+				string,
+				string,
+				string,
+			) (expenses.Expense, error) {
+				return expenses.Expense{}, errors.New("unexpected expense Get call")
+			},
+			replace: func(
+				context.Context,
+				string,
+				string,
+				string,
+				expenses.MutationInput,
+			) (expenses.Expense, error) {
+				return expenses.Expense{}, errors.New("unexpected expense Replace call")
+			},
+			delete: func(context.Context, string, string, string) error {
+				return errors.New("unexpected expense Delete call")
 			},
 		},
 		Sessions: sessionValidatorFunc(func(string) (auth.Session, error) {

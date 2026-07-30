@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Fyy10/settled/server/internal/auth"
+	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
 )
 
@@ -108,6 +109,7 @@ func (a *API) handleError(
 func errorFor(err error) errorSpec {
 	var authValidation *auth.ValidationError
 	var groupValidation *groups.ValidationError
+	var expenseValidation *expenses.ValidationError
 	switch {
 	case errors.As(err, &authValidation):
 		spec := validationFailedError
@@ -116,6 +118,10 @@ func errorFor(err error) errorSpec {
 	case errors.As(err, &groupValidation):
 		spec := validationFailedError
 		spec.fields = groupValidation.Fields
+		return spec
+	case errors.As(err, &expenseValidation):
+		spec := validationFailedError
+		spec.fields = expenseValidation.Fields
 		return spec
 	case errors.Is(err, ErrBadRequest):
 		return badRequestError
@@ -130,7 +136,9 @@ func errorFor(err error) errorSpec {
 		return csrfInvalidError
 	case errors.Is(err, ErrForbidden), errors.Is(err, groups.ErrForbidden):
 		return forbiddenError
-	case errors.Is(err, ErrNotFound), errors.Is(err, groups.ErrNotFound):
+	case errors.Is(err, ErrNotFound),
+		errors.Is(err, groups.ErrNotFound),
+		errors.Is(err, expenses.ErrNotFound):
 		return notFoundError
 	case errors.Is(err, ErrConflict),
 		errors.Is(err, auth.ErrDuplicateEmail),

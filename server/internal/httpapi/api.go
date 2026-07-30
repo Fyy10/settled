@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/Fyy10/settled/server/internal/auth"
+	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
 )
 
@@ -37,6 +38,25 @@ type GroupService interface {
 	RemoveMember(context.Context, string, string, string) error
 }
 
+type ExpenseService interface {
+	List(context.Context, string, string) (expenses.ListResult, error)
+	Create(
+		context.Context,
+		string,
+		string,
+		expenses.MutationInput,
+	) (expenses.Expense, error)
+	Get(context.Context, string, string, string) (expenses.Expense, error)
+	Replace(
+		context.Context,
+		string,
+		string,
+		string,
+		expenses.MutationInput,
+	) (expenses.Expense, error)
+	Delete(context.Context, string, string, string) error
+}
+
 type CSRFProtector interface {
 	IssueOrReuse(string, *auth.Session) (auth.CSRFBinding, error)
 	RotateAnonymous() (auth.CSRFBinding, error)
@@ -49,6 +69,7 @@ type Options struct {
 	AllowedOrigins []string
 	Auth           AuthService
 	Groups         GroupService
+	Expenses       ExpenseService
 	Sessions       SessionValidator
 	CSRF           CSRFProtector
 	SessionCookies auth.SessionCookies
@@ -61,6 +82,7 @@ type API struct {
 	logger         *slog.Logger
 	authService    AuthService
 	groupService   GroupService
+	expenseService ExpenseService
 	sessions       SessionValidator
 	csrf           CSRFProtector
 	sessionCookies auth.SessionCookies
@@ -76,6 +98,7 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 		logger == nil ||
 		options.Auth == nil ||
 		options.Groups == nil ||
+		options.Expenses == nil ||
 		options.Sessions == nil ||
 		options.CSRF == nil {
 		return nil, errors.New("invalid HTTP API configuration")
@@ -95,6 +118,7 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 		logger:         logger,
 		authService:    options.Auth,
 		groupService:   options.Groups,
+		expenseService: options.Expenses,
 		sessions:       options.Sessions,
 		csrf:           options.CSRF,
 		sessionCookies: options.SessionCookies,
@@ -125,6 +149,31 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 		"DELETE /api/groups/{groupId}/members/{userId}",
 		routeAuthenticatedUnsafe,
 		api.removeGroupMember,
+	)
+	api.register(
+		"GET /api/groups/{groupId}/expenses",
+		routeAuthenticated,
+		api.listExpenses,
+	)
+	api.register(
+		"POST /api/groups/{groupId}/expenses",
+		routeAuthenticatedUnsafe,
+		api.createExpense,
+	)
+	api.register(
+		"GET /api/groups/{groupId}/expenses/{expenseId}",
+		routeAuthenticated,
+		api.getExpense,
+	)
+	api.register(
+		"PUT /api/groups/{groupId}/expenses/{expenseId}",
+		routeAuthenticatedUnsafe,
+		api.replaceExpense,
+	)
+	api.register(
+		"DELETE /api/groups/{groupId}/expenses/{expenseId}",
+		routeAuthenticatedUnsafe,
+		api.deleteExpense,
 	)
 	api.handler = api.withPanicRecovery(
 		api.withRequestIDAndAccessLog(

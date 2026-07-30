@@ -18,6 +18,7 @@ import (
 	"github.com/Fyy10/settled/server/internal/auth"
 	"github.com/Fyy10/settled/server/internal/clock"
 	"github.com/Fyy10/settled/server/internal/config"
+	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
 	"github.com/Fyy10/settled/server/internal/httpapi"
 	"github.com/Fyy10/settled/server/internal/store"
@@ -108,10 +109,15 @@ func run(ctx context.Context, output io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("configure group service: %w", err)
 	}
+	expenseService, err := expenses.NewService(applicationStore, systemClock)
+	if err != nil {
+		return fmt.Errorf("configure expense service: %w", err)
+	}
 	api, err := httpapi.New(db, logger, httpapi.Options{
 		AllowedOrigins: cfg.AllowedOrigins,
 		Auth:           authService,
 		Groups:         groupService,
+		Expenses:       expenseService,
 		Sessions:       sessionManager,
 		CSRF:           csrfManager,
 		SessionCookies: auth.NewSessionCookies(

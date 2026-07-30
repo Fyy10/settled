@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Fyy10/settled/server/internal/auth"
+	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
 )
 
@@ -84,6 +85,12 @@ func TestErrorMapping(t *testing.T) {
 			wantCode:   "not_found",
 		},
 		{
+			name:       "hidden expense",
+			err:        expenses.ErrNotFound,
+			wantStatus: http.StatusNotFound,
+			wantCode:   "not_found",
+		},
+		{
 			name:       "conflict",
 			err:        ErrConflict,
 			wantStatus: http.StatusConflict,
@@ -110,6 +117,17 @@ func TestErrorMapping(t *testing.T) {
 			wantStatus: http.StatusUnprocessableEntity,
 			wantCode:   "validation_failed",
 			wantFields: map[string]string{"name": "Group name is required."},
+		},
+		{
+			name: "expense validation",
+			err: &expenses.ValidationError{Fields: map[string]string{
+				"expenseDate": "Expense date is required.",
+			}},
+			wantStatus: http.StatusUnprocessableEntity,
+			wantCode:   "validation_failed",
+			wantFields: map[string]string{
+				"expenseDate": "Expense date is required.",
+			},
 		},
 		{
 			name:       "join code collision exhaustion remains internal",
