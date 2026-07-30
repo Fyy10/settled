@@ -34,7 +34,7 @@ the first-release scope.
 │   ├── lib/             Shared frontend components and utilities
 │   └── routes/          Frontend routes and global styles
 ├── static/              Static frontend assets
-├── server/              Go API module; currently contains only go.mod
+├── server/              Go API process, configuration, and HTTP packages
 ├── docs/                Product, architecture, API, backend, and frontend designs
 ├── docs/plans/          Ordered implementation tasks
 ├── package.json         Frontend scripts and dependencies
@@ -51,13 +51,13 @@ Current frontend development requires:
 
 - Node.js and `pnpm`.
 
-Backend and database work will require:
+Backend and database development requires:
 
 - Go 1.25.1, matching `server/go.mod`.
-- PostgreSQL and its `psql` client.
+- PostgreSQL.
 
-No PostgreSQL version, container image, or repository-managed database startup
-command has been established yet.
+The schema and repository-managed database tooling have not been added yet.
+Task-specific database checks may also require Docker and the `psql` client.
 
 ## Install Frontend Dependencies
 
@@ -89,23 +89,27 @@ will be added with the first behavior tests.
 
 ## API Development
 
-The Go module exists, but the backend executable and API packages have not been
-implemented. There is currently no API process to start.
-
-The planned entry point is `server/cmd/settled`, so the eventual command will be
-`go run ./cmd/settled` from `server/`. That path does not exist yet and the
-command is not currently runnable.
-
-The baseline Go validation command is:
+The Go API entry point is `server/cmd/settled`. It currently exposes liveness
+and PostgreSQL-backed readiness checks:
 
 ```sh
 cd server
+go run ./cmd/settled
 go test ./...
 ```
 
-Because the module currently contains no Go packages or tests, the Go tool
-reports that `./...` matched no packages. Later backend tasks will make this a
-passing test suite.
+The process requires `DATABASE_URL`, `JWT_SECRET_BASE64`, and
+`CSRF_SECRET_BASE64`. Both secrets must be distinct Base64-encoded values of at
+least 32 decoded bytes. PostgreSQL must be reachable before the API starts.
+
+Once running, check:
+
+```sh
+curl http://localhost:8080/api/health/live
+curl http://localhost:8080/api/health/ready
+```
+
+Both return `{"status":"ok"}` while the API and database are available.
 
 ## Database Development
 
@@ -119,24 +123,27 @@ Database support has not been implemented yet:
 - There is no database creation or schema-application script.
 - There is no integration-test script.
 - There is no Docker or Compose configuration.
-- The application does not currently connect to PostgreSQL.
+- The API connects to PostgreSQL for startup and readiness checks, but no
+  application tables or queries exist yet.
 
-Start PostgreSQL independently using your preferred local installation when the
-schema and API tasks are implemented. Those tasks will document the exact
-database setup and validation commands.
+Start PostgreSQL independently using your preferred local installation. The
+schema task will document the exact application and integration-test commands.
 
-## Planned Configuration
+## Configuration
 
-No application code currently consumes project-specific environment variables.
-Later tasks will introduce configuration in these categories:
+The API currently reads:
 
-- Frontend API origin: `PUBLIC_API_BASE_URL`.
 - Runtime mode and listen address: `APP_ENV` and `HTTP_ADDR`.
-- PostgreSQL connection and pool settings, including `DATABASE_URL`.
-- Exact browser origins allowed to make credentialed API requests.
-- Independent JWT and CSRF signing secrets.
-- Session-cookie security settings.
-- Logging level.
+- PostgreSQL connection and pool settings: `DATABASE_URL`,
+  `DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, `DB_CONN_MAX_LIFETIME`, and
+  `DB_CONN_MAX_IDLE_TIME`.
+- Browser security: `ALLOWED_ORIGINS`, `COOKIE_SECURE`, `COOKIE_SAME_SITE`, and
+  `COOKIE_DOMAIN`.
+- Independent signing secrets: `JWT_SECRET_BASE64` and `CSRF_SECRET_BASE64`.
+- Structured logging threshold: `LOG_LEVEL`.
+
+The frontend API origin variable, `PUBLIC_API_BASE_URL`, will be introduced with
+the static application shell.
 
 Keep secrets out of committed files. The repository ignores `.env` and `.env.*`
 files except explicit example and test templates.
@@ -147,8 +154,7 @@ files except explicit example and test templates.
 | --- | --- |
 | Frontend starter | Present; development, check, build, and preview scripts exist |
 | Frontend tests | Not implemented; no `pnpm test` script |
-| Go module | Present at `server/go.mod` |
-| API executable and routes | Not implemented |
+| Go API | Runnable health service at `server/cmd/settled` with unit and race tests |
 | PostgreSQL schema and scripts | Not implemented |
 | Containers and deployment | Not implemented |
 
