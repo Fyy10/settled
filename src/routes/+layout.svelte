@@ -3,6 +3,7 @@
 	import favicon from "$lib/assets/favicon.svg";
 	import RouteFocusManager from "$lib/components/app/route-focus-manager.svelte";
 	import RouteLoadingAnnouncer from "$lib/components/app/route-loading-announcer.svelte";
+	import SessionExpirationRedirect from "$lib/components/app/session-expiration-redirect.svelte";
 	import { Toaster } from "$lib/components/ui/sonner";
 	import { copy } from "$lib/copy/en";
 
@@ -25,6 +26,7 @@
 
 <RouteFocusManager />
 <RouteLoadingAnnouncer active={navigating.to !== null} />
+<SessionExpirationRedirect />
 <Toaster position="top-center" />
 
 {@render children?.()}

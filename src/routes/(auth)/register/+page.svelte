@@ -1,5 +1,5 @@
 <script lang="ts">
-	import RouteState from "$lib/components/app/route-state.svelte";
+	import RegisterForm from "$lib/components/auth/register-form.svelte";
 	import { copy } from "$lib/copy/en";
 	import { pageTitle } from "$lib/utils/page-title";
 </script>
@@ -8,8 +8,4 @@
 	<title>{pageTitle(copy.routes.register.documentTitle)}</title>
 </svelte:head>
 
-<RouteState
-	title={copy.routes.register.title}
-	description={copy.routes.register.description}
-	loadingLabel={copy.routes.register.loadingLabel}
-/>
+<RegisterForm />
