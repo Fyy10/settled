@@ -11,6 +11,7 @@ import (
 	"github.com/Fyy10/settled/server/internal/auth"
 	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
+	"github.com/Fyy10/settled/server/internal/repayments"
 )
 
 type sessionValidatorFunc func(string) (auth.Session, error)
@@ -62,6 +63,94 @@ type fakeExpenseService struct {
 		expenses.MutationInput,
 	) (expenses.Expense, error)
 	delete func(context.Context, string, string, string) error
+}
+
+type fakeRepaymentService struct {
+	list func(
+		context.Context,
+		string,
+		string,
+	) (repayments.ListResult, error)
+	create func(
+		context.Context,
+		string,
+		string,
+		repayments.MutationInput,
+	) (repayments.Repayment, error)
+	get func(
+		context.Context,
+		string,
+		string,
+		string,
+	) (repayments.Repayment, error)
+	replace func(
+		context.Context,
+		string,
+		string,
+		string,
+		repayments.MutationInput,
+	) (repayments.Repayment, error)
+	delete func(context.Context, string, string, string) error
+}
+
+func (service fakeRepaymentService) List(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+) (repayments.ListResult, error) {
+	if service.list == nil {
+		return repayments.ListResult{}, errors.New("unexpected repayment List call")
+	}
+	return service.list(ctx, actorID, groupID)
+}
+
+func (service fakeRepaymentService) Create(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+	input repayments.MutationInput,
+) (repayments.Repayment, error) {
+	if service.create == nil {
+		return repayments.Repayment{}, errors.New("unexpected repayment Create call")
+	}
+	return service.create(ctx, actorID, groupID, input)
+}
+
+func (service fakeRepaymentService) Get(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+	repaymentID string,
+) (repayments.Repayment, error) {
+	if service.get == nil {
+		return repayments.Repayment{}, errors.New("unexpected repayment Get call")
+	}
+	return service.get(ctx, actorID, groupID, repaymentID)
+}
+
+func (service fakeRepaymentService) Replace(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+	repaymentID string,
+	input repayments.MutationInput,
+) (repayments.Repayment, error) {
+	if service.replace == nil {
+		return repayments.Repayment{}, errors.New("unexpected repayment Replace call")
+	}
+	return service.replace(ctx, actorID, groupID, repaymentID, input)
+}
+
+func (service fakeRepaymentService) Delete(
+	ctx context.Context,
+	actorID string,
+	groupID string,
+	repaymentID string,
+) error {
+	if service.delete == nil {
+		return errors.New("unexpected repayment Delete call")
+	}
+	return service.delete(ctx, actorID, groupID, repaymentID)
 }
 
 func (service fakeExpenseService) List(
@@ -423,6 +512,51 @@ func defaultTestOptions() Options {
 			},
 			delete: func(context.Context, string, string, string) error {
 				return errors.New("unexpected expense Delete call")
+			},
+		},
+		Repayments: fakeRepaymentService{
+			list: func(
+				context.Context,
+				string,
+				string,
+			) (repayments.ListResult, error) {
+				return repayments.ListResult{}, errors.New(
+					"unexpected repayment List call",
+				)
+			},
+			create: func(
+				context.Context,
+				string,
+				string,
+				repayments.MutationInput,
+			) (repayments.Repayment, error) {
+				return repayments.Repayment{}, errors.New(
+					"unexpected repayment Create call",
+				)
+			},
+			get: func(
+				context.Context,
+				string,
+				string,
+				string,
+			) (repayments.Repayment, error) {
+				return repayments.Repayment{}, errors.New(
+					"unexpected repayment Get call",
+				)
+			},
+			replace: func(
+				context.Context,
+				string,
+				string,
+				string,
+				repayments.MutationInput,
+			) (repayments.Repayment, error) {
+				return repayments.Repayment{}, errors.New(
+					"unexpected repayment Replace call",
+				)
+			},
+			delete: func(context.Context, string, string, string) error {
+				return errors.New("unexpected repayment Delete call")
 			},
 		},
 		Sessions: sessionValidatorFunc(func(string) (auth.Session, error) {

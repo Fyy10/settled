@@ -11,6 +11,7 @@ import (
 	"github.com/Fyy10/settled/server/internal/auth"
 	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
+	"github.com/Fyy10/settled/server/internal/repayments"
 )
 
 type Pinger interface {
@@ -57,6 +58,25 @@ type ExpenseService interface {
 	Delete(context.Context, string, string, string) error
 }
 
+type RepaymentService interface {
+	List(context.Context, string, string) (repayments.ListResult, error)
+	Create(
+		context.Context,
+		string,
+		string,
+		repayments.MutationInput,
+	) (repayments.Repayment, error)
+	Get(context.Context, string, string, string) (repayments.Repayment, error)
+	Replace(
+		context.Context,
+		string,
+		string,
+		string,
+		repayments.MutationInput,
+	) (repayments.Repayment, error)
+	Delete(context.Context, string, string, string) error
+}
+
 type CSRFProtector interface {
 	IssueOrReuse(string, *auth.Session) (auth.CSRFBinding, error)
 	RotateAnonymous() (auth.CSRFBinding, error)
@@ -70,6 +90,7 @@ type Options struct {
 	Auth           AuthService
 	Groups         GroupService
 	Expenses       ExpenseService
+	Repayments     RepaymentService
 	Sessions       SessionValidator
 	CSRF           CSRFProtector
 	SessionCookies auth.SessionCookies
@@ -78,19 +99,20 @@ type Options struct {
 }
 
 type API struct {
-	db             Pinger
-	logger         *slog.Logger
-	authService    AuthService
-	groupService   GroupService
-	expenseService ExpenseService
-	sessions       SessionValidator
-	csrf           CSRFProtector
-	sessionCookies auth.SessionCookies
-	csrfCookies    auth.CSRFCookies
-	origins        OriginPolicy
-	requestIDBytes io.Reader
-	mux            *http.ServeMux
-	handler        http.Handler
+	db               Pinger
+	logger           *slog.Logger
+	authService      AuthService
+	groupService     GroupService
+	expenseService   ExpenseService
+	repaymentService RepaymentService
+	sessions         SessionValidator
+	csrf             CSRFProtector
+	sessionCookies   auth.SessionCookies
+	csrfCookies      auth.CSRFCookies
+	origins          OriginPolicy
+	requestIDBytes   io.Reader
+	mux              *http.ServeMux
+	handler          http.Handler
 }
 
 func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
@@ -99,6 +121,7 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 		options.Auth == nil ||
 		options.Groups == nil ||
 		options.Expenses == nil ||
+		options.Repayments == nil ||
 		options.Sessions == nil ||
 		options.CSRF == nil {
 		return nil, errors.New("invalid HTTP API configuration")
@@ -114,18 +137,19 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 	}
 
 	api := &API{
-		db:             db,
-		logger:         logger,
-		authService:    options.Auth,
-		groupService:   options.Groups,
-		expenseService: options.Expenses,
-		sessions:       options.Sessions,
-		csrf:           options.CSRF,
-		sessionCookies: options.SessionCookies,
-		csrfCookies:    options.CSRFCookies,
-		origins:        origins,
-		requestIDBytes: requestIDBytes,
-		mux:            http.NewServeMux(),
+		db:               db,
+		logger:           logger,
+		authService:      options.Auth,
+		groupService:     options.Groups,
+		expenseService:   options.Expenses,
+		repaymentService: options.Repayments,
+		sessions:         options.Sessions,
+		csrf:             options.CSRF,
+		sessionCookies:   options.SessionCookies,
+		csrfCookies:      options.CSRFCookies,
+		origins:          origins,
+		requestIDBytes:   requestIDBytes,
+		mux:              http.NewServeMux(),
 	}
 	api.register("GET /api/health/live", routePublic, api.live)
 	api.register("GET /api/health/ready", routePublic, api.ready)
@@ -174,6 +198,31 @@ func New(db Pinger, logger *slog.Logger, options Options) (*API, error) {
 		"DELETE /api/groups/{groupId}/expenses/{expenseId}",
 		routeAuthenticatedUnsafe,
 		api.deleteExpense,
+	)
+	api.register(
+		"GET /api/groups/{groupId}/repayments",
+		routeAuthenticated,
+		api.listRepayments,
+	)
+	api.register(
+		"POST /api/groups/{groupId}/repayments",
+		routeAuthenticatedUnsafe,
+		api.createRepayment,
+	)
+	api.register(
+		"GET /api/groups/{groupId}/repayments/{repaymentId}",
+		routeAuthenticated,
+		api.getRepayment,
+	)
+	api.register(
+		"PUT /api/groups/{groupId}/repayments/{repaymentId}",
+		routeAuthenticatedUnsafe,
+		api.replaceRepayment,
+	)
+	api.register(
+		"DELETE /api/groups/{groupId}/repayments/{repaymentId}",
+		routeAuthenticatedUnsafe,
+		api.deleteRepayment,
 	)
 	api.handler = api.withPanicRecovery(
 		api.withRequestIDAndAccessLog(

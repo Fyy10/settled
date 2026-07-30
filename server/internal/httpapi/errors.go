@@ -8,6 +8,7 @@ import (
 	"github.com/Fyy10/settled/server/internal/auth"
 	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
+	"github.com/Fyy10/settled/server/internal/repayments"
 )
 
 var (
@@ -110,6 +111,7 @@ func errorFor(err error) errorSpec {
 	var authValidation *auth.ValidationError
 	var groupValidation *groups.ValidationError
 	var expenseValidation *expenses.ValidationError
+	var repaymentValidation *repayments.ValidationError
 	switch {
 	case errors.As(err, &authValidation):
 		spec := validationFailedError
@@ -122,6 +124,10 @@ func errorFor(err error) errorSpec {
 	case errors.As(err, &expenseValidation):
 		spec := validationFailedError
 		spec.fields = expenseValidation.Fields
+		return spec
+	case errors.As(err, &repaymentValidation):
+		spec := validationFailedError
+		spec.fields = repaymentValidation.Fields
 		return spec
 	case errors.Is(err, ErrBadRequest):
 		return badRequestError
@@ -138,7 +144,8 @@ func errorFor(err error) errorSpec {
 		return forbiddenError
 	case errors.Is(err, ErrNotFound),
 		errors.Is(err, groups.ErrNotFound),
-		errors.Is(err, expenses.ErrNotFound):
+		errors.Is(err, expenses.ErrNotFound),
+		errors.Is(err, repayments.ErrNotFound):
 		return notFoundError
 	case errors.Is(err, ErrConflict),
 		errors.Is(err, auth.ErrDuplicateEmail),

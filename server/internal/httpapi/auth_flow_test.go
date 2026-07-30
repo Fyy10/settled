@@ -59,6 +59,7 @@ func TestAuthenticationCookieJarFlow(t *testing.T) {
 			Auth:           authService,
 			Groups:         fakeGroupService{},
 			Expenses:       fakeExpenseService{},
+			Repayments:     fakeRepaymentService{},
 			Sessions:       sessions,
 			CSRF:           csrf,
 			SessionCookies: auth.NewSessionCookies(

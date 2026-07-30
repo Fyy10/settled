@@ -12,6 +12,7 @@ import (
 	"github.com/Fyy10/settled/server/internal/auth"
 	"github.com/Fyy10/settled/server/internal/expenses"
 	"github.com/Fyy10/settled/server/internal/groups"
+	"github.com/Fyy10/settled/server/internal/repayments"
 )
 
 func TestErrorMapping(t *testing.T) {
@@ -91,6 +92,12 @@ func TestErrorMapping(t *testing.T) {
 			wantCode:   "not_found",
 		},
 		{
+			name:       "hidden repayment",
+			err:        repayments.ErrNotFound,
+			wantStatus: http.StatusNotFound,
+			wantCode:   "not_found",
+		},
+		{
 			name:       "conflict",
 			err:        ErrConflict,
 			wantStatus: http.StatusConflict,
@@ -127,6 +134,17 @@ func TestErrorMapping(t *testing.T) {
 			wantCode:   "validation_failed",
 			wantFields: map[string]string{
 				"expenseDate": "Expense date is required.",
+			},
+		},
+		{
+			name: "repayment validation",
+			err: &repayments.ValidationError{Fields: map[string]string{
+				"repaymentDate": "Repayment date is required.",
+			}},
+			wantStatus: http.StatusUnprocessableEntity,
+			wantCode:   "validation_failed",
+			wantFields: map[string]string{
+				"repaymentDate": "Repayment date is required.",
 			},
 		},
 		{
