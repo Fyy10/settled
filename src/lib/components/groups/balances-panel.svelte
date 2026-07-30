@@ -46,7 +46,7 @@
 	</Card.Header>
 
 	<Card.Content>
-		{#if status === 'loading'}
+		{#if status === 'loading' && response === null}
 			<div class="flex flex-col gap-4">
 				<div class="flex items-center gap-3" aria-live="polite">
 					<Spinner aria-label={copy.groups.workspace.balances.loading} />
@@ -66,7 +66,9 @@
 					{/each}
 				</div>
 			</div>
-		{:else if status === 'error'}
+		{/if}
+
+		{#if status === 'error'}
 			<div class="flex flex-col gap-4">
 				<Alert.Root variant="destructive">
 					<CircleAlertIcon data-icon="inline-start" />
@@ -81,7 +83,9 @@
 					{copy.groups.workspace.retry}
 				</Button>
 			</div>
-		{:else if response !== null && response.settlements.length === 0}
+		{/if}
+
+		{#if status !== 'error' && response !== null && response.settlements.length === 0}
 			<Empty.Root class="min-h-56">
 				<Empty.Header>
 					<Empty.Media variant="icon">
@@ -93,7 +97,7 @@
 					</Empty.Description>
 				</Empty.Header>
 			</Empty.Root>
-		{:else if response !== null}
+		{:else if status !== 'error' && response !== null && response.settlements.length > 0}
 			<div>
 				{#each response.settlements as settlement, index (`${settlement.fromUserId}:${settlement.toUserId}`)}
 					{#if index > 0}

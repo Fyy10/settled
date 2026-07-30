@@ -197,9 +197,33 @@ function isExpense(value: unknown): value is Expense {
 		isStrictLocalDate(value.expenseDate) &&
 		isNonEmptyString(value.createdByUserId) &&
 		isArrayOf(value.splits, isExpenseSplit) &&
+		hasCoherentExpenseSplits(value.splits, value.amountCents) &&
 		isTimestamp(value.createdAt) &&
 		isTimestamp(value.updatedAt)
 	);
+}
+
+function hasCoherentExpenseSplits(
+	splits: readonly ExpenseSplit[],
+	amountCents: number
+): boolean {
+	if (splits.length === 0) {
+		return false;
+	}
+
+	const userIds = new Set<string>();
+	let total = 0n;
+	for (const split of splits) {
+		const userId = split.userId.toLocaleLowerCase('en-US');
+		if (userIds.has(userId)) {
+			return false;
+		}
+
+		userIds.add(userId);
+		total += BigInt(split.amountCents);
+	}
+
+	return total === BigInt(amountCents);
 }
 
 function isRepayment(value: unknown): value is Repayment {

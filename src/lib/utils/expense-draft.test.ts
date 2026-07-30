@@ -386,7 +386,7 @@ describe('dirty detection', () => {
 		);
 		const equivalent = cloneDraft(initial);
 		equivalent.amount = '10';
-		equivalent.description = ' Dinner ';
+		equivalent.description = '\u0085 Dinner \u0085';
 		equivalent.participants[0].exactAmount = '5';
 
 		expect(isExpenseDraftDirty(equivalent, initial)).toBe(false);
@@ -413,6 +413,21 @@ describe('dirty detection', () => {
 });
 
 describe('expense request DTO conversion', () => {
+	it('trims the Unicode space set used by the Go API', () => {
+		const draft = validEqualDraft(1_000, [
+			backendParticipantA,
+			backendParticipantB
+		]);
+		draft.description = '\u0085Dinner\u0085';
+
+		expect(toExpenseInput(draft)).toMatchObject({
+			ok: true,
+			value: {
+				description: 'Dinner'
+			}
+		});
+	});
+
 	it('emits the exact equal DTO and preserves participant order', () => {
 		const draft = validEqualDraft(10, [
 			backendParticipantC,

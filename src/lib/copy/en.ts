@@ -60,6 +60,8 @@ export const copy = {
 			open: 'Open account menu for',
 			label: 'Account',
 			logout: 'Log out',
+			logoutDirtyConfirmation:
+				'Discard your unsaved changes and log out?',
 			pending: 'Signing out',
 			failure: 'Settled could not sign you out. Your current page is still open. Try again.'
 		}
@@ -143,6 +145,7 @@ export const copy = {
 				splitWith: 'Split with',
 				person: 'person',
 				people: 'people',
+				editExpense: 'Edit expense',
 				recordedOutside: 'Recorded outside Settled'
 			},
 			members: {
@@ -213,6 +216,73 @@ export const copy = {
 					'The group was dissolved, but Settled could not open your groups.',
 				continueToGroups: 'Continue to groups'
 			}
+		},
+		expenses: {
+			backToGroup: 'Back to group',
+			descriptionLabel: 'Description',
+			descriptionPlaceholder: 'Dinner, groceries, tickets…',
+			amountLabel: 'Amount',
+			payerLabel: 'Paid by',
+			payerPlaceholder: 'Choose who paid',
+			dateLabel: 'Date',
+			splitMethodLabel: 'Split method',
+			equalMode: 'Equal',
+			exactMode: 'Exact amounts',
+			percentageMode: 'Percentages',
+			participantsLegend: 'Participants and shares',
+			participantsDescription:
+				'Choose everyone included. The person who paid does not need to be included.',
+			editSplitDescription:
+				'Saved expenses open as exact amounts. Changing the split method recalculates this draft.',
+			exactShareLabel: 'Share for',
+			percentageShareLabel: 'Percentage for',
+			reviewTitle: 'Review split',
+			equalReview: 'split equally',
+			assigned: 'assigned',
+			remaining: 'remaining',
+			discardManualShares:
+				'Changing the split method will discard your manual shares. Continue?',
+			removeManualShare:
+				'Removing this participant will discard their manual share. Continue?',
+			cancel: 'Cancel',
+			add: 'Add expense',
+			adding: 'Adding expense',
+			save: 'Save changes',
+			saving: 'Saving changes',
+			added: 'Expense added',
+			saved: 'Changes saved',
+			refreshFailure:
+				'The expense was saved, but some group information could not be refreshed. Reload before relying on balances or activity.',
+			navigationFailure:
+				'The expense was saved, but Settled could not return to group activity.',
+			continueToActivity: 'Return to group activity',
+			failure: 'Settled could not save this expense. Check the form and try again.',
+			ambiguousFailure:
+				'Settled could not confirm the result. Check group activity before trying again.',
+			unknownFieldFailure:
+				'The server reported a form issue that Settled could not match to a field.',
+			unsavedChanges: 'Discard your unsaved expense changes?',
+			mutationUnavailable: 'Changes are unavailable while Settled is offline.',
+			memberMismatch:
+				'Your active account is not a member of this group. Reload before adding an expense.',
+			saveDisabledReason:
+				'Complete the required expense details to enable saving.',
+			recordUnavailableTitle: 'This record isn’t available.',
+			recordUnavailableDescription:
+				'It may have been deleted, or you may no longer have access.',
+			loadFailureTitle: 'Settled couldn’t load this expense.',
+			loadFailureDescription: 'Check your connection and try again.',
+			retry: 'Retry',
+			delete: 'Delete expense',
+			reviewDeleteResult: 'Review delete result',
+			deleteTitle: 'Delete this expense?',
+			deleteDescription:
+				'The expense will be removed from ordinary activity and balances will be recalculated.',
+			deleteCancel: 'Cancel',
+			deleteSubmit: 'Delete expense',
+			deleting: 'Deleting expense',
+			deleted: 'Expense deleted',
+			deleteFailure: 'Settled could not delete this expense. Try again.'
 		}
 	},
 	errors: {

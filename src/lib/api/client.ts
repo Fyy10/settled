@@ -79,12 +79,17 @@ async function requestInternal<T>(
 	const method = options.method ?? 'GET';
 	const unsafe = unsafeMethods.has(method);
 	validateCsrfOption(unsafe, options.csrf);
+	throwIfAborted(options.signal);
 
 	try {
 		return await sendAttempt<T>(path, options, method, unsafe, authorization);
 	} catch (error) {
 		if (unsafe && options.retryCsrf !== false && isCsrfApiError(error)) {
-			await getCsrfToken({ force: true });
+			throwIfAborted(options.signal);
+			await waitForSharedValue(
+				getCsrfToken({ force: true }),
+				options.signal
+			);
 
 			try {
 				return await sendAttempt<T>(path, options, method, unsafe, authorization);
@@ -111,7 +116,11 @@ async function sendAttempt<T>(
 		headers.set('Authorization', authorization);
 	}
 	if (unsafe) {
-		headers.set('X-CSRF-Token', await getCsrfToken());
+		throwIfAborted(options.signal);
+		headers.set(
+			'X-CSRF-Token',
+			await waitForSharedValue(getCsrfToken(), options.signal)
+		);
 	}
 
 	return (await sendApiRequest(path, {
@@ -121,6 +130,53 @@ async function sendAttempt<T>(
 		headers,
 		expectedStatus: options.expectedStatus
 	})) as T;
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+	if (signal?.aborted) {
+		throw abortReason(signal);
+	}
+}
+
+function waitForSharedValue<T>(
+	promise: Promise<T>,
+	signal: AbortSignal | undefined
+): Promise<T> {
+	if (signal === undefined) {
+		return promise;
+	}
+	if (signal.aborted) {
+		return Promise.reject(abortReason(signal));
+	}
+
+	return new Promise<T>((resolve, reject) => {
+		const abort = () => {
+			reject(abortReason(signal));
+		};
+		signal.addEventListener('abort', abort, { once: true });
+
+		promise.then(
+			(value) => {
+				signal.removeEventListener('abort', abort);
+				if (signal.aborted) {
+					reject(abortReason(signal));
+					return;
+				}
+				resolve(value);
+			},
+			(error: unknown) => {
+				signal.removeEventListener('abort', abort);
+				reject(error);
+			}
+		);
+	});
+}
+
+function abortReason(signal: AbortSignal): unknown {
+	return (
+		signal.reason ??
+		new DOMException('The operation was aborted.', 'AbortError')
+	);
 }
 
 function validateCsrfOption(unsafe: boolean, csrf: boolean | undefined): void {

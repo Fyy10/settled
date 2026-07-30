@@ -15,6 +15,10 @@
 	import { Spinner } from "$lib/components/ui/spinner";
 	import { copy } from "$lib/copy/en";
 	import { clearSession } from "$lib/state/auth.svelte";
+	import {
+		hasBlockingForms,
+		hasDirtyForms
+	} from "$lib/state/dirty-forms.svelte";
 
 	let { user }: { user: User } = $props();
 
@@ -24,7 +28,13 @@
 	let failureAlert: HTMLDivElement | null = $state(null);
 
 	async function submitLogout(): Promise<void> {
-		if (pending) {
+		if (pending || hasBlockingForms.current) {
+			return;
+		}
+		if (
+			hasDirtyForms.current &&
+			!globalThis.confirm(copy.auth.accountMenu.logoutDirtyConfirmation)
+		) {
 			return;
 		}
 
@@ -87,7 +97,7 @@
 				<DropdownMenu.Group>
 					<DropdownMenu.Item
 						class="min-h-11"
-						disabled={pending}
+						disabled={pending || hasBlockingForms.current}
 						onSelect={(event) => {
 							event.preventDefault();
 							void submitLogout();

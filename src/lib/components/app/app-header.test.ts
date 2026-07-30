@@ -1,7 +1,14 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor
+} from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { networkError } from '$lib/api/errors';
+import { registerDirtyForm } from '$lib/state/dirty-forms.svelte';
 import { currentUserFixture } from '../../../tests/fixtures/api-contract';
 
 import AppHeader from './app-header.svelte';
@@ -22,6 +29,16 @@ beforeEach(() => {
 	mocks.goto.mockReset().mockResolvedValue(undefined);
 	mocks.logout.mockReset();
 	mocks.clearSession.mockReset();
+	vi.stubGlobal('confirm', vi.fn());
+});
+
+afterEach(async () => {
+	cleanup();
+	await waitFor(() => {
+		expect(document.body.style.overflow).not.toBe('hidden');
+		expect(document.body.style.pointerEvents).not.toBe('none');
+	});
+	vi.unstubAllGlobals();
 });
 
 describe('AppHeader', () => {
@@ -75,6 +92,39 @@ describe('AppHeader', () => {
 		).toBeInTheDocument();
 		expect(mocks.clearSession).not.toHaveBeenCalled();
 		expect(mocks.goto).not.toHaveBeenCalled();
+	});
+
+	it('confirms a dirty draft before logout and does not mutate on decline', async () => {
+		const registration = registerDirtyForm(true);
+		const confirm = vi.mocked(globalThis.confirm);
+		confirm.mockReturnValue(false);
+		render(AppHeader, { user: currentUserFixture.user });
+
+		await openAccountMenu();
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Log out' }));
+
+		expect(confirm).toHaveBeenCalledWith(
+			'Discard your unsaved changes and log out?'
+		);
+		expect(mocks.logout).not.toHaveBeenCalled();
+
+		confirm.mockReturnValue(true);
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Log out' }));
+		await waitFor(() => expect(mocks.logout).toHaveBeenCalledOnce());
+		registration.unregister();
+	});
+
+	it('does not start logout while a form mutation is pending', async () => {
+		const registration = registerDirtyForm(true, true);
+		render(AppHeader, { user: currentUserFixture.user });
+
+		await openAccountMenu();
+		expect(screen.getByRole('menuitem', { name: 'Log out' })).toHaveAttribute(
+			'data-disabled'
+		);
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Log out' }));
+		expect(mocks.logout).not.toHaveBeenCalled();
+		registration.unregister();
 	});
 });
 

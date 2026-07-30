@@ -92,6 +92,33 @@ describe('API contract fixtures', () => {
 		zeroShare.expenses[0].splits[0].amountCents = 0;
 		expect(isExpenseListResponse(zeroShare)).toBe(false);
 
+		const noSplits = structuredClone(expenseListFixture);
+		noSplits.expenses[0].splits = [];
+		expect(isExpenseListResponse(noSplits)).toBe(false);
+
+		const duplicateSplits = structuredClone(expenseListFixture);
+		duplicateSplits.expenses[0].splits[1].userId =
+			duplicateSplits.expenses[0].splits[0].userId.toUpperCase();
+		expect(isExpenseListResponse(duplicateSplits)).toBe(false);
+
+		const mismatchedSplitTotal = structuredClone(expenseListFixture);
+		mismatchedSplitTotal.expenses[0].splits[0].amountCents += 1;
+		expect(isExpenseListResponse(mismatchedSplitTotal)).toBe(false);
+
+		const overflowSplitTotal = structuredClone(expenseListFixture);
+		overflowSplitTotal.expenses[0].amountCents = Number.MAX_SAFE_INTEGER;
+		overflowSplitTotal.expenses[0].splits = [
+			{
+				userId: overflowSplitTotal.expenses[0].splits[0].userId,
+				amountCents: Number.MAX_SAFE_INTEGER
+			},
+			{
+				userId: overflowSplitTotal.expenses[0].splits[1].userId,
+				amountCents: 1
+			}
+		];
+		expect(isExpenseListResponse(overflowSplitTotal)).toBe(false);
+
 		const invalidRole: unknown = {
 			...groupDetailFixture,
 			group: { ...groupDetailFixture.group, currentUserRole: 'admin' }

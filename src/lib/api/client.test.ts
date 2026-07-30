@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LOCAL_API_BASE_URL } from '$lib/config/api-base-url';
-import { clearCsrfToken, setCsrfToken } from '$lib/state/csrf';
+import {
+	clearCsrfToken,
+	getCsrfToken,
+	setCsrfToken
+} from '$lib/state/csrf';
 
 import {
 	ApiError,
@@ -65,6 +69,21 @@ describe('credentialed API transport', () => {
 		expect(mutationInit?.signal).toBe(controller.signal);
 		expect(mutationHeaders.get('Content-Type')).toBe('application/json');
 		expect(mutationHeaders.get('X-CSRF-Token')).toBe('csrf-one');
+	});
+
+	it('does not start CSRF or mutation fetches for a pre-aborted request', async () => {
+		const controller = new AbortController();
+		controller.abort(new DOMException('Stopped', 'AbortError'));
+		fetchMock.mockRejectedValue(new TypeError('unused rejection'));
+
+		await expect(
+			request('/api/groups', {
+				method: 'POST',
+				body: { name: 'Lake Trip' },
+				signal: controller.signal
+			})
+		).rejects.toMatchObject({ name: 'AbortError' });
+		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
 	it('returns undefined for 204 without attempting JSON parsing', async () => {
@@ -208,6 +227,41 @@ describe('CSRF request lifecycle', () => {
 		}
 	});
 
+	it('lets one caller abort while a shared initial token refresh continues', async () => {
+		const csrfResponse = deferred<Response>();
+		fetchMock.mockImplementation((input) => {
+			if (String(input).endsWith('/api/auth/csrf')) {
+				return csrfResponse.promise;
+			}
+
+			return Promise.resolve(jsonResponse({ ok: true }));
+		});
+		const controller = new AbortController();
+
+		const aborted = request('/api/groups', {
+			method: 'POST',
+			body: { name: 'Aborted' },
+			signal: controller.signal
+		});
+		const continuing = request('/api/groups', {
+			method: 'POST',
+			body: { name: 'Continuing' }
+		});
+
+		await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+		controller.abort();
+		await expect(aborted).rejects.toMatchObject({ name: 'AbortError' });
+		expect(fetchMock).toHaveBeenCalledOnce();
+
+		csrfResponse.resolve(jsonResponse({ csrfToken: 'shared-token' }));
+		await expect(continuing).resolves.toEqual({ ok: true });
+
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(fetchMock.mock.calls[1][1]?.body).toBe(
+			'{"name":"Continuing"}'
+		);
+	});
+
 	it('uses an explicitly rotated token without fetching another one', async () => {
 		setCsrfToken('rotated-token');
 		fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
@@ -238,6 +292,49 @@ describe('CSRF request lifecycle', () => {
 		expect(new Headers(fetchMock.mock.calls[3][1]?.headers).get('X-CSRF-Token')).toBe(
 			'new-token'
 		);
+	});
+
+	it('does not retry an aborted caller after a shared forced refresh', async () => {
+		setCsrfToken('stale-token');
+		const csrfResponse = deferred<Response>();
+		let mutationCount = 0;
+		fetchMock.mockImplementation((input) => {
+			if (String(input).endsWith('/api/auth/csrf')) {
+				return csrfResponse.promise;
+			}
+
+			mutationCount += 1;
+			return Promise.resolve(
+				mutationCount === 1
+					? csrfError('csrf_invalid')
+					: jsonResponse({ ok: true })
+			);
+		});
+		const controller = new AbortController();
+		const aborted = request('/api/groups', {
+			method: 'POST',
+			body: { name: 'Aborted retry' },
+			signal: controller.signal
+		});
+
+		await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+		controller.abort();
+		await expect(aborted).rejects.toMatchObject({ name: 'AbortError' });
+		expect(mutationCount).toBe(1);
+
+		csrfResponse.resolve(jsonResponse({ csrfToken: 'fresh-token' }));
+		await expect(getCsrfToken({ force: true })).resolves.toBe('fresh-token');
+		await expect(
+			request('/api/groups', {
+				method: 'POST',
+				body: { name: 'Later caller' }
+			})
+		).resolves.toEqual({ ok: true });
+
+		expect(mutationCount).toBe(2);
+		expect(
+			new Headers(fetchMock.mock.calls[2][1]?.headers).get('X-CSRF-Token')
+		).toBe('fresh-token');
 	});
 
 	it.each(['csrf_required', 'csrf_invalid'] as const)(

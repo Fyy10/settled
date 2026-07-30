@@ -56,6 +56,23 @@ describe('balances panel', () => {
 			)
 		);
 	});
+
+	it('suppresses preserved settlement rows after a refresh failure', () => {
+		render(BalancesPanel, {
+			groupId: groupDetailFixture.group.id,
+			status: 'error',
+			response: settlementListFixture,
+			onRetry: vi.fn()
+		});
+
+		expect(
+			screen.getByText('Settled couldn’t load balances.')
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole('link', { name: 'Record payment' })
+		).not.toBeInTheDocument();
+		expect(screen.queryByText('$20.00')).not.toBeInTheDocument();
+	});
 });
 
 describe('members panel', () => {

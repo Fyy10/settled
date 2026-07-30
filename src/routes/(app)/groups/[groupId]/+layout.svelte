@@ -3,12 +3,20 @@
 	import FolderXIcon from "@lucide/svelte/icons/folder-x";
 	import { onDestroy, untrack } from "svelte";
 
+	import {
+		isNotFoundApiError,
+		isUnauthorizedApiError
+	} from "$lib/api/errors";
 	import * as Alert from "$lib/components/ui/alert";
 	import { Button } from "$lib/components/ui/button";
 	import * as Empty from "$lib/components/ui/empty";
 	import { Skeleton } from "$lib/components/ui/skeleton";
 	import { Spinner } from "$lib/components/ui/spinner";
 	import { copy } from "$lib/copy/en";
+	import {
+		GroupAccountingState,
+		provideGroupAccounting
+	} from "$lib/state/group-accounting.svelte";
 	import {
 		GroupDetailContext,
 		provideGroupDetailContext
@@ -18,17 +26,49 @@
 	let { data, children } = $props();
 
 	const groupDetail = provideGroupDetailContext(new GroupDetailContext());
+	const accounting = provideGroupAccounting(new GroupAccountingState());
 
 	$effect(() => {
 		const groupId = data.groupId;
 		untrack(() => {
+			accounting.activate(groupId);
 			void groupDetail.load(groupId).catch(() => {
 				// The route boundary renders the state selected by the context.
 			});
 		});
 	});
 
-	onDestroy(() => groupDetail.dispose());
+	$effect(() => {
+		const errors = [
+			accounting.expenses.error,
+			accounting.repayments.error,
+			accounting.settlements.error
+		].filter((error) => error !== null);
+		if (errors.length === 0) {
+			return;
+		}
+
+		untrack(() => {
+			if (errors.some(isUnauthorizedApiError)) {
+				accounting.clear();
+				groupDetail.clear();
+			} else if (errors.some(isNotFoundApiError)) {
+				accounting.clear();
+				groupDetail.markHidden();
+			}
+		});
+	});
+
+	$effect(() => {
+		if (groupDetail.status === 'hidden') {
+			untrack(() => accounting.clear());
+		}
+	});
+
+	onDestroy(() => {
+		accounting.dispose();
+		groupDetail.dispose();
+	});
 
 	function retryDetail(): void {
 		void groupDetail.refreshDetail().catch(() => {
@@ -43,11 +83,16 @@
 	</title>
 </svelte:head>
 
-{#if groupDetail.status === 'ready' && groupDetail.group !== null}
-	<div class="min-w-0">
+{#if groupDetail.status !== 'hidden' && accounting.groupId !== ''}
+	<div
+		class="min-w-0"
+		hidden={groupDetail.status !== 'ready' || groupDetail.group === null}
+	>
 		{@render children?.()}
 	</div>
-{:else}
+{/if}
+
+{#if groupDetail.status !== 'ready' || groupDetail.group === null}
 	<section class="mx-auto flex w-full max-w-3xl flex-col gap-6">
 		{#if groupDetail.status === 'hidden'}
 			<Empty.Root class="min-h-72 border">

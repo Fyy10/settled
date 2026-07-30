@@ -10,6 +10,13 @@ import {
 
 export const PERCENTAGE_BASIS_POINT_TOTAL = 10_000;
 
+const GO_UNICODE_SPACE =
+	'\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000';
+const GO_TRIM_SPACE_PATTERN = new RegExp(
+	`^[${GO_UNICODE_SPACE}]+|[${GO_UNICODE_SPACE}]+$`,
+	'g'
+);
+
 export type ExpenseSplitMode = 'equal' | 'exact' | 'percentage';
 
 export type ExpenseParticipantDraft = {
@@ -125,6 +132,10 @@ export type ExpenseSplitPreview = {
 export type ExpenseInputResult =
 	| { ok: true; value: ExpenseInput }
 	| { ok: false; errors: ExpenseDraftError[] };
+
+export function trimExpenseDescription(value: string): string {
+	return value.replace(GO_TRIM_SPACE_PATTERN, '');
+}
 
 export function createExpenseDraft(options: {
 	paidByUserId: string;
@@ -347,7 +358,7 @@ export function previewExpenseSplits(draft: ExpenseDraft): ExpenseSplitPreview {
 
 export function toExpenseInput(draft: ExpenseDraft): ExpenseInputResult {
 	const errors: ExpenseDraftError[] = [];
-	const description = draft.description.trim();
+	const description = trimExpenseDescription(draft.description);
 	if (description === '') {
 		errors.push({
 			code: 'description-required',
@@ -430,6 +441,38 @@ export function toExpenseInput(draft: ExpenseDraft): ExpenseInputResult {
 					})
 				}
 			};
+	}
+}
+
+export function persistedSplitsForExpenseInput(
+	input: ExpenseInput
+): ExpenseRequestSplit[] {
+	switch (input.splitMode) {
+		case 'equal': {
+			if (input.participantUserIds.length === 0) {
+				return [];
+			}
+			const amounts = calculateEqualAmounts(
+				input.amountCents,
+				input.participantUserIds.length
+			);
+			return input.participantUserIds.map((userId, index) => ({
+				userId,
+				amountCents: amounts[index]
+			}));
+		}
+		case 'exact':
+			return input.splits.map((split) => ({ ...split }));
+		case 'percentage': {
+			const amounts = calculatePercentageAmounts(
+				input.amountCents,
+				input.percentageSplits.map((split) => split.percentageBasisPoints)
+			);
+			return input.percentageSplits.map((split, index) => ({
+				userId: split.userId,
+				amountCents: amounts[index]
+			}));
+		}
 	}
 }
 
@@ -860,7 +903,7 @@ function draftFingerprint(draft: ExpenseDraft): string {
 	});
 
 	return JSON.stringify({
-		description: draft.description.trim(),
+		description: trimExpenseDescription(draft.description),
 		amount: canonicalDecimalInput(draft.amount, parseUsdToCents),
 		paidByUserId: draft.paidByUserId,
 		expenseDate: draft.expenseDate,

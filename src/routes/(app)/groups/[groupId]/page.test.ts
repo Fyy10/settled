@@ -8,6 +8,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError, networkError } from '$lib/api/errors';
+import { GroupAccountingState } from '$lib/state/group-accounting.svelte';
 import {
 	expenseListFixture,
 	groupDetailFixture,
@@ -31,6 +32,7 @@ const mocks = vi.hoisted(() => ({
 		markHidden: vi.fn(),
 		refreshDetail: vi.fn()
 	},
+	accounting: null as GroupAccountingState | null,
 	removeGroupMember: vi.fn(),
 	listExpenses: vi.fn(),
 	listRepayments: vi.fn(),
@@ -52,6 +54,14 @@ vi.mock('$lib/api/settlements', () => ({
 vi.mock('$lib/state/group-detail.svelte', () => ({
 	useGroupDetailContext: () => mocks.context
 }));
+vi.mock('$lib/state/group-accounting.svelte', async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import('$lib/state/group-accounting.svelte')>();
+	return {
+		...actual,
+		useGroupAccounting: () => mocks.accounting
+	};
+});
 vi.mock('$lib/config/public', () => ({
 	API_BASE_URL: 'http://localhost:8080'
 }));
@@ -72,6 +82,12 @@ beforeEach(() => {
 	mocks.listExpenses.mockReset().mockResolvedValue(expenseListFixture);
 	mocks.listRepayments.mockReset().mockResolvedValue(repaymentListFixture);
 	mocks.listSettlements.mockReset().mockResolvedValue(settlementListFixture);
+	mocks.accounting = new GroupAccountingState({
+		expenses: mocks.listExpenses,
+		repayments: mocks.listRepayments,
+		settlements: mocks.listSettlements
+	});
+	mocks.accounting.activate(groupDetailFixture.group.id);
 });
 
 describe('group workspace loading and navigation', () => {
@@ -101,6 +117,8 @@ describe('group workspace loading and navigation', () => {
 			mocks.listSettlements.mock.calls[0][1].signal
 		];
 		unmount();
+		expect(signals.every((signal) => !signal.aborted)).toBe(true);
+		mocks.accounting?.dispose();
 		expect(signals.every((signal) => signal.aborted)).toBe(true);
 	});
 
@@ -189,7 +207,7 @@ describe('independent group workspace failures', () => {
 		expect(mocks.listSettlements).toHaveBeenCalledOnce();
 	});
 
-	it('promotes any hidden-group 404 without showing a local panel error', async () => {
+	it('exposes a hidden-group 404 to the route boundary through accounting state', async () => {
 		mocks.listSettlements.mockRejectedValue(
 			new ApiError({
 				status: 404,
@@ -201,12 +219,16 @@ describe('independent group workspace failures', () => {
 
 		render(GroupPage);
 
-		await waitFor(() => expect(mocks.context.markHidden).toHaveBeenCalledOnce());
-		expect(screen.queryByText('Settled couldn’t load balances.')).not.toBeInTheDocument();
-		expect(mocks.context.clear).not.toHaveBeenCalled();
+		await waitFor(() =>
+			expect(mocks.accounting?.settlements.error).toMatchObject({
+				status: 404,
+				code: 'not_found'
+			})
+		);
+		expect(mocks.context.markHidden).not.toHaveBeenCalled();
 	});
 
-	it('leaves 401 handling to the global session flow and clears route metadata', async () => {
+	it('exposes a 401 to the global route/session boundary through accounting state', async () => {
 		mocks.listRepayments.mockRejectedValue(
 			new ApiError({
 				status: 401,
@@ -218,11 +240,13 @@ describe('independent group workspace failures', () => {
 
 		render(GroupPage);
 
-		await waitFor(() => expect(mocks.context.clear).toHaveBeenCalledOnce());
-		expect(mocks.context.markHidden).not.toHaveBeenCalled();
-		expect(
-			screen.queryByText('Settled couldn’t load payment records.')
-		).not.toBeInTheDocument();
+		await waitFor(() =>
+			expect(mocks.accounting?.repayments.error).toMatchObject({
+				status: 401,
+				code: 'unauthorized'
+			})
+		);
+		expect(mocks.context.clear).not.toHaveBeenCalled();
 	});
 });
 

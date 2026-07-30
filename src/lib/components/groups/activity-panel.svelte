@@ -161,6 +161,7 @@
 								{/if}
 								{#if item.kind === 'expense'}
 									<ExpenseActivityRow
+										{groupId}
 										expense={item.value}
 										payerName={memberDisplayName(
 											memberNames,
