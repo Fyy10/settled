@@ -1,14 +1,12 @@
 <script lang="ts">
-	import { Button } from "$lib/components/ui/button";
+	import RouteState from "$lib/components/app/route-state.svelte";
+	import { copy } from "$lib/copy/en";
 </script>
 
-<h1>Welcome to SvelteKit</h1>
-<div class="flex gap-4 mt-4">
-	<Button>Default Button</Button>
-	<Button variant="destructive">Destructive</Button>
-	<Button variant="outline">Outline</Button>
-	<Button variant="secondary">Secondary</Button>
-	<Button variant="ghost">Ghost</Button>
-	<Button variant="link">Link</Button>
-</div>
-<p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
+<main id="main-content" class="mx-auto flex min-h-dvh w-full max-w-3xl items-center px-4 py-10 sm:px-6">
+	<RouteState
+		title={copy.routes.root.title}
+		description={copy.routes.root.description}
+		loadingLabel={copy.loading.session}
+	/>
+</main>

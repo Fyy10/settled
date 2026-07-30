@@ -67,23 +67,32 @@ pnpm install
 
 ## Frontend Development
 
-The current repository contains a runnable SvelteKit starter. These commands
-exist in `package.json`:
+The frontend is a client-only SvelteKit application built with
+`adapter-static`. These commands exist in `package.json`:
 
 ```sh
 pnpm dev
 pnpm check
+pnpm test
 pnpm build
 pnpm preview
 ```
 
 - `pnpm dev` starts the Vite development server.
 - `pnpm check` runs SvelteKit synchronization and Svelte type checking.
-- `pnpm build` creates the current production output.
+- `pnpm test` runs the Vitest unit and component suite once.
+- `pnpm build` creates static production output in `build/`.
 - `pnpm preview` serves that output locally after `pnpm build`.
 
-`pnpm test` is not available yet. A frontend test runner and the `test` script
-will be added with the first behavior tests.
+Production builds require an HTTPS API origin:
+
+```sh
+PUBLIC_API_BASE_URL=https://api.settled.example pnpm build
+```
+
+Development defaults to `http://localhost:8080`. Static hosting must rewrite
+unknown application routes to `200.html` so direct visits to dynamic routes
+load the client application.
 
 ## API Development
 
@@ -151,8 +160,9 @@ The API currently reads:
 - Independent signing secrets: `JWT_SECRET_BASE64` and `CSRF_SECRET_BASE64`.
 - Structured logging threshold: `LOG_LEVEL`.
 
-The frontend API origin variable, `PUBLIC_API_BASE_URL`, will be introduced with
-the static application shell.
+The frontend reads `PUBLIC_API_BASE_URL`. It defaults to
+`http://localhost:8080` during local development; production builds require an
+absolute HTTPS origin without a trailing slash.
 
 Keep secrets out of committed files. The repository ignores `.env` and `.env.*`
 files except explicit example and test templates.
@@ -161,8 +171,8 @@ files except explicit example and test templates.
 
 | Component | Status |
 | --- | --- |
-| Frontend starter | Present; development, check, build, and preview scripts exist |
-| Frontend tests | Not implemented; no `pnpm test` script |
+| Frontend static shell | Client-only route skeleton, semantic tokens, and SPA fallback present |
+| Frontend tests | Vitest and Testing Library baseline present |
 | Go API | Runnable health service at `server/cmd/settled` with unit and race tests |
 | PostgreSQL schema and scripts | Fresh schema and ephemeral integration harness present |
 | Containers and deployment | Not implemented |
