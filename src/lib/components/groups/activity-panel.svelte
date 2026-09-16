@@ -171,6 +171,7 @@
 									/>
 								{:else}
 									<RepaymentActivityRow
+										{groupId}
 										repayment={item.value}
 										fromName={memberDisplayName(
 											memberNames,

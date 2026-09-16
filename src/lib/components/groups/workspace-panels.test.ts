@@ -51,9 +51,7 @@ describe('balances panel', () => {
 		});
 		expect(firstPaymentLink).toHaveAttribute(
 			'href',
-			expect.stringContaining(
-				`from=${settlementListFixture.settlements[0].fromUserId}`
-			)
+			`/groups/${groupDetailFixture.group.id}/repayments/new?from=${settlementListFixture.settlements[0].fromUserId}&to=${settlementListFixture.settlements[0].toUserId}&amountCents=${settlementListFixture.settlements[0].amountCents}`
 		);
 	});
 

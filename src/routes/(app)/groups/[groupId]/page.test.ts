@@ -176,6 +176,14 @@ describe('independent group workspace failures', () => {
 		).toBeInTheDocument();
 		expect(screen.getByText('Bob paid Alice')).toBeInTheDocument();
 		expect(screen.getAllByText('Recorded outside Settled')).toHaveLength(2);
+		const paymentLink = screen.getByRole('link', {
+			name: /Bob paid Alice.*Venmo.*Recorded outside Settled.*\$20\.00/
+		});
+		expect(paymentLink).toHaveAttribute(
+			'href',
+			`/groups/${groupDetailFixture.group.id}/repayments/${repaymentListFixture.repayments[0].id}/edit`
+		);
+		expect(paymentLink.querySelector('a, button')).toBeNull();
 		await fireEvent.click(screen.getByRole('tab', { name: 'Balances' }));
 		expect(
 			await screen.findByRole('heading', { level: 2, name: 'Balances' })

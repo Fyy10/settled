@@ -1,4 +1,5 @@
 import { isStrictLocalDate } from '$lib/utils/dates';
+import { isValidPersistedRepaymentNote } from '$lib/utils/repayment-draft';
 
 import { invalidResponseError } from './errors';
 import type {
@@ -233,9 +234,12 @@ function isRepayment(value: unknown): value is Repayment {
 		isNonEmptyString(value.groupId) &&
 		isNonEmptyString(value.fromUserId) &&
 		isNonEmptyString(value.toUserId) &&
+		value.fromUserId.toLocaleLowerCase('en-US') !==
+			value.toUserId.toLocaleLowerCase('en-US') &&
 		isPositiveSafeInteger(value.amountCents) &&
 		value.currency === 'USD' &&
 		(value.note === null || typeof value.note === 'string') &&
+		isValidPersistedRepaymentNote(value.note) &&
 		typeof value.repaymentDate === 'string' &&
 		isStrictLocalDate(value.repaymentDate) &&
 		isNonEmptyString(value.createdByUserId) &&
@@ -249,6 +253,8 @@ function isSettlement(value: unknown): value is Settlement {
 		isJsonObject(value) &&
 		isNonEmptyString(value.fromUserId) &&
 		isNonEmptyString(value.toUserId) &&
+		value.fromUserId.toLocaleLowerCase('en-US') !==
+			value.toUserId.toLocaleLowerCase('en-US') &&
 		isPositiveSafeInteger(value.amountCents) &&
 		value.currency === 'USD'
 	);

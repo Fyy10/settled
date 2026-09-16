@@ -146,6 +146,7 @@ export const copy = {
 				person: 'person',
 				people: 'people',
 				editExpense: 'Edit expense',
+				editPayment: 'Edit payment record',
 				recordedOutside: 'Recorded outside Settled'
 			},
 			members: {
@@ -283,6 +284,66 @@ export const copy = {
 			deleting: 'Deleting expense',
 			deleted: 'Expense deleted',
 			deleteFailure: 'Settled could not delete this expense. Try again.'
+		},
+		repayments: {
+			backToGroup: 'Back to group',
+			fromLabel: 'Paid by',
+			fromPlaceholder: 'Choose who paid',
+			toLabel: 'Paid to',
+			toPlaceholder: 'Choose who received payment',
+			swapPeople: 'Swap people',
+			amountLabel: 'Amount',
+			dateLabel: 'Date',
+			noteLabel: 'Note (optional)',
+			notePlaceholder: 'Venmo, cash, bank transfer…',
+			disclaimer:
+				'Settled records a payment made outside the app. It does not send money.',
+			cancel: 'Cancel',
+			record: 'Record payment',
+			recording: 'Recording payment',
+			save: 'Save changes',
+			saving: 'Saving changes',
+			recorded: 'Payment recorded',
+			saved: 'Changes saved',
+			refreshFailure:
+				'The payment record was saved, but balances could not be fully refreshed. Reload before relying on them.',
+			navigationFailure:
+				'The payment record was saved, but Settled could not open group balances.',
+			continueToBalances: 'Return to group balances',
+			continueToActivity: 'Return to group activity',
+			failure:
+				'Settled could not save this payment record. Check the form and try again.',
+			ambiguousFailure:
+				'Settled could not confirm the result. Check group activity before trying again.',
+			unknownFieldFailure:
+				'The server reported a form issue that Settled could not match to a field.',
+			unsavedChanges: 'Discard your unsaved payment changes?',
+			mutationUnavailable: 'Changes are unavailable while Settled is offline.',
+			memberMismatch:
+				'Your active account is not a member of this group. Reload before recording a payment.',
+			saveGuidance:
+				'Review the required payment details before saving.',
+			recordUnavailableTitle: 'This record isn’t available.',
+			recordUnavailableDescription:
+				'It may have been deleted, or you may no longer have access.',
+			loadFailureTitle: 'Settled couldn’t load this payment record.',
+			loadFailureDescription: 'Check your connection and try again.',
+			retry: 'Retry',
+			delete: 'Delete payment record',
+			reviewDeleteResult: 'Review delete result',
+			deleteTitle: 'Delete this payment record?',
+			deleteDescription:
+				'The record will be removed from ordinary activity and balances will be recalculated.',
+			deleteCancel: 'Cancel',
+			deleteSubmit: 'Delete payment record',
+			deleting: 'Deleting payment record',
+			deleted: 'Payment record deleted',
+			deleteRefreshFailure:
+				'The payment record was deleted, but balances and activity could not be fully refreshed. Reload before relying on them.',
+			deleteNavigationFailure:
+				'The payment record was deleted, but Settled could not open group activity.',
+			deleteFailure:
+				'Settled could not delete this payment record. Try again.'
 		}
 	},
 	errors: {
@@ -316,6 +377,20 @@ export const copy = {
 		percentageTooLarge: 'A percentage cannot exceed 100%.',
 		percentageTotalInvalid: 'Percentages must add up to 100%.',
 		percentageZeroShare: 'Each percentage must produce at least a one-cent share.'
+	},
+	repaymentDraft: {
+		fromRequired: 'Choose who paid.',
+		fromInvalid: 'Choose an active group member who paid.',
+		toRequired: 'Choose who received payment.',
+		toInvalid: 'Choose an active group member who received payment.',
+		usersDifferent: 'Paid by and Paid to must be different people.',
+		amountRequired: 'Enter an amount.',
+		amountInvalid: 'Enter a dollar amount with up to two decimal places.',
+		amountPositive: 'Amount must be greater than $0.00.',
+		amountTooLarge: 'Amount is too large.',
+		dateInvalid: 'Enter a valid date in YYYY-MM-DD format.',
+		noteTooLong: 'Note must not exceed 240 characters.',
+		noteInvalid: 'Note contains unsupported control characters.'
 	},
 	routes: {
 		root: {

@@ -26,9 +26,16 @@ describe('settlement API', () => {
 				...settlementListFixture.settlements,
 				{
 					fromUserId: settlementListFixture.members[0].userId,
-					toUserId: settlementListFixture.members[1].userId,
+					toUserId: '00000000-0000-4000-8000-000000000003',
 					amountCents: 500,
 					currency: 'USD' as const
+				}
+			],
+			members: [
+				...settlementListFixture.members,
+				{
+					userId: '00000000-0000-4000-8000-000000000003',
+					displayName: 'Casey'
 				}
 			]
 		};
@@ -41,11 +48,114 @@ describe('settlement API', () => {
 	});
 
 	it('requires explicit non-null settlement and member arrays', async () => {
+		fetchMock
+			.mockResolvedValueOnce(
+				jsonResponse({
+					...settlementListFixture,
+					settlements: null
+				})
+			)
+			.mockResolvedValueOnce(
+				jsonResponse({
+					...settlementListFixture,
+					members: null
+				})
+			);
+
+		await expect(listSettlements('group-id')).rejects.toMatchObject({
+			code: 'invalid_response'
+		});
+		await expect(listSettlements('group-id')).rejects.toMatchObject({
+			code: 'invalid_response'
+		});
+	});
+
+	it.each([
+		[
+			'a duplicate member ID',
+			{
+				...settlementListFixture,
+				members: [
+					...settlementListFixture.members,
+					{
+						...settlementListFixture.members[0],
+						userId:
+							settlementListFixture.members[0].userId.toUpperCase()
+					}
+				]
+			}
+		],
+		[
+			'a self-transfer',
+			{
+				...settlementListFixture,
+				settlements: [
+					{
+						...settlementListFixture.settlements[0],
+						toUserId:
+							settlementListFixture.settlements[0].fromUserId
+					}
+				]
+			}
+		],
+		[
+			'a missing sender summary',
+			{
+				...settlementListFixture,
+				members: settlementListFixture.members.filter(
+					(member) =>
+						member.userId !==
+						settlementListFixture.settlements[0].fromUserId
+				)
+			}
+		],
+		[
+			'a missing recipient summary',
+			{
+				...settlementListFixture,
+				members: settlementListFixture.members.filter(
+					(member) =>
+						member.userId !==
+						settlementListFixture.settlements[0].toUserId
+				)
+			}
+		],
+		[
+			'a duplicate unordered pair',
+			{
+				...settlementListFixture,
+				settlements: [
+					...settlementListFixture.settlements,
+					{
+						fromUserId:
+							settlementListFixture.settlements[0].toUserId,
+						toUserId:
+							settlementListFixture.settlements[0].fromUserId,
+						amountCents: 500,
+						currency: 'USD' as const
+					}
+				]
+			}
+		]
+	])('rejects settlement coherence with %s', async (_label, response) => {
+		fetchMock.mockResolvedValue(jsonResponse(response));
+
+		await expect(listSettlements('group-id')).rejects.toMatchObject({
+			status: 200,
+			code: 'invalid_response'
+		});
+	});
+
+	it('enforces the documented 200 success status', async () => {
 		fetchMock.mockResolvedValue(
-			jsonResponse({ ...settlementListFixture, settlements: null })
+			new Response(JSON.stringify(settlementListFixture), {
+				status: 201,
+				headers: { 'Content-Type': 'application/json' }
+			})
 		);
 
 		await expect(listSettlements('group-id')).rejects.toMatchObject({
+			status: 201,
 			code: 'invalid_response'
 		});
 	});
