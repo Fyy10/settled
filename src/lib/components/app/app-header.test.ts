@@ -1,3 +1,4 @@
+import { withNetworkState } from '../../../tests/network';
 import {
 	cleanup,
 	fireEvent,
@@ -42,6 +43,24 @@ afterEach(async () => {
 });
 
 describe('AppHeader', () => {
+	it('blocks offline mutations and permits retry after reconnecting', async () => {
+		await withNetworkState(async (setOnline) => {
+			render(AppHeader, { user: currentUserFixture.user });
+			await openAccountMenu();
+			await setOnline(false);
+			const button = screen.getAllByRole('menuitem', { name: 'Log out' }).at(-1)!;
+			expect(button).toHaveAttribute('data-disabled');
+			expect(
+				screen.getByText('Reconnect to continue. Your entries will stay here.')
+			).toBeInTheDocument();
+			await fireEvent.click(button);
+			expect(mocks.logout).not.toHaveBeenCalled();
+			await setOnline(true);
+			expect(button).not.toHaveAttribute('data-disabled');
+			expect(mocks.logout).not.toHaveBeenCalled();
+		});
+	});
+
 	it('shows the signed-in account and logs out before replacing history', async () => {
 		mocks.logout.mockResolvedValue(undefined);
 		render(AppHeader, { user: currentUserFixture.user });

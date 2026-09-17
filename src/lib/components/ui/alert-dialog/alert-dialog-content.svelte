@@ -4,6 +4,7 @@
 	import AlertDialogOverlay from "./alert-dialog-overlay.svelte";
 	import AlertDialogPortal from "./alert-dialog-portal.svelte";
 	import type { ComponentProps } from "svelte";
+	import { trackDialogViewport } from "../dialog/visual-viewport";
 
 	let {
 		ref = $bindable(null),
@@ -15,6 +16,12 @@
 		size?: "default" | "sm";
 		portalProps?: WithoutChildrenOrChild<ComponentProps<typeof AlertDialogPortal>>;
 	} = $props();
+
+	$effect(() => {
+		if (ref) {
+			return trackDialogViewport(ref);
+		}
+	});
 </script>
 
 <AlertDialogPortal {...portalProps}>

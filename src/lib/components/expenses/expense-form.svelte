@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { networkState } from "$lib/state/network.svelte";
 	import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
 	import { onDestroy, tick, untrack } from "svelte";
 	import { toast } from "svelte-sonner";
@@ -50,7 +51,7 @@
 		save,
 		onCommitted,
 		onNotFound,
-		mutationDisabledReason = null
+		mutationDisabledReason: externalMutationDisabledReason = null
 	}: {
 		mode: 'create' | 'edit';
 		members: readonly GroupMember[];
@@ -95,6 +96,8 @@
 	const draftResult = $derived(toExpenseInput(draft));
 	const dirty = $derived(isExpenseDraftDirty(draft, initial));
 	const mutationPending = $derived(mutation.phase === 'pending');
+	const mutationDisabledReason = $derived(networkState.mutationDisabledReason ?? externalMutationDisabledReason);
+
 	const pending = $derived(
 		mutation.phase === 'pending' && mutation.operation === 'save'
 	);

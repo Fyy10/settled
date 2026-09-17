@@ -1,3 +1,4 @@
+import { withNetworkState } from '../../../tests/network';
 import {
 	fireEvent,
 	render,
@@ -32,6 +33,31 @@ beforeEach(() => {
 });
 
 describe('RenameGroupForm', () => {
+	it('retains editable entries and blocks direct submission while offline', async () => {
+		await withNetworkState(async (setOnline) => {
+			render(RenameGroupForm, {
+				group: groupDetailFixture.group,
+				onSaved: vi.fn(),
+				onProtectedError: vi.fn()
+			});
+			const input = screen.getByRole('textbox', { name: 'Group name' });
+			await fireEvent.input(input, { target: { value: 'Offline trip' } });
+			await setOnline(false);
+			const button = screen.getAllByRole('button', { name: 'Save changes' }).at(-1)!;
+			expect(button).toBeDisabled();
+			expect(
+				screen.getByText('Reconnect to continue. Your entries will stay here.')
+			).toBeInTheDocument();
+			await fireEvent.submit(input.closest('form')!);
+			expect(mocks.renameGroup).not.toHaveBeenCalled();
+			expect(input).toHaveValue('Offline trip');
+			expect(input).toBeEnabled();
+			await setOnline(true);
+			expect(input).toHaveValue('Offline trip');
+			expect(mocks.renameGroup).not.toHaveBeenCalled();
+		});
+	});
+
 	it('saves a trimmed Unicode name and reports only a failed revalidation afterward', async () => {
 		const renamed = { ...groupDetailFixture.group, name: '湖の旅' };
 		mocks.renameGroup.mockResolvedValue(renamed);

@@ -1,3 +1,4 @@
+import { withNetworkState } from '../../../tests/network';
 import {
 	cleanup,
 	fireEvent,
@@ -44,6 +45,25 @@ afterEach(async () => {
 });
 
 describe('DeleteRepaymentDialog', () => {
+	it('blocks offline mutations and permits retry after reconnecting', async () => {
+		await withNetworkState(async (setOnline) => {
+			renderDialog();
+			await fireEvent.click(screen.getByRole('button', { name: 'Delete payment record' }));
+			await screen.findByRole('alertdialog');
+			await setOnline(false);
+			const button = screen.getAllByRole('button', { name: 'Delete payment record' }).at(-1)!;
+			expect(button).toBeDisabled();
+			expect(
+				screen.getByText('Reconnect to continue. Your entries will stay here.')
+			).toBeInTheDocument();
+			await fireEvent.click(button);
+			expect(mocks.deleteRepayment).not.toHaveBeenCalled();
+			await setOnline(true);
+			expect(button).toBeEnabled();
+			expect(mocks.deleteRepayment).not.toHaveBeenCalled();
+		});
+	});
+
 	it('deletes once, waits for authoritative follow-up, and reports the exact success', async () => {
 		const onCommitted = vi.fn().mockResolvedValue({
 			refresh: 'succeeded',

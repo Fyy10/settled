@@ -55,7 +55,7 @@
   --muted-foreground: oklch(0.7693 0.0236 164.32);
   --accent: oklch(0.3033 0.0267 164.03);
   --accent-foreground: oklch(0.9668 0.0091 161.35);
-  --destructive: oklch(0.625 0.1274 26.11);
+  --destructive: oklch(0.66 0.1274 26.11);
   --destructive-foreground: oklch(0.1985 0.0156 165.72);
   --border: oklch(0.549 0.0245 162.46);
   --input: oklch(0.549 0.0245 162.46);
@@ -129,6 +129,8 @@
 
   body {
     @apply min-h-dvh bg-background text-foreground antialiased;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
     font-size: 0.875rem;
     line-height: 1.3125rem;
   }
@@ -156,6 +158,25 @@
   ::selection {
     background: color-mix(in oklch, var(--primary) 24%, transparent);
   }
+}
+
+/* Portal dialogs must follow the visible viewport when a keyboard opens. */
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  width: calc(100vw - 2rem - env(safe-area-inset-left) - env(safe-area-inset-right));
+  left: calc(50% + (env(safe-area-inset-left) - env(safe-area-inset-right)) / 2);
+  top: calc(
+    var(--dialog-viewport-top, 0px) + var(--dialog-viewport-height, 100dvh) / 2
+      + (env(safe-area-inset-top) - env(safe-area-inset-bottom)) / 2
+  );
+  max-height: calc(
+    var(--dialog-viewport-height, 100dvh) - 2rem
+      - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+  );
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  overscroll-behavior: contain;
+  scroll-padding-block: 1rem;
 }
 
 @media (min-width: 640px) {

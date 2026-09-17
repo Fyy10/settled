@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { networkState } from "$lib/state/network.svelte";
 	import { goto } from "$app/navigation";
 	import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
 	import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
 	import LogOutIcon from "@lucide/svelte/icons/log-out";
-	import { tick } from "svelte";
+	import { onDestroy, tick } from "svelte";
 
 	import { logout } from "$lib/api/auth";
 	import type { User } from "$lib/api/types";
@@ -16,6 +17,7 @@
 	import { copy } from "$lib/copy/en";
 	import { clearSession } from "$lib/state/auth.svelte";
 	import {
+		registerDirtyForm,
 		hasBlockingForms,
 		hasDirtyForms
 	} from "$lib/state/dirty-forms.svelte";
@@ -24,11 +26,14 @@
 
 	let menuOpen = $state(false);
 	let pending = $state(false);
+	const mutationRegistration = registerDirtyForm();
+	$effect.pre(() => mutationRegistration.update(false, pending));
+	onDestroy(() => mutationRegistration.unregister());
 	let failure = $state(false);
 	let failureAlert: HTMLDivElement | null = $state(null);
 
 	async function submitLogout(): Promise<void> {
-		if (pending || hasBlockingForms.current) {
+		if (!networkState.online || pending || hasBlockingForms.current) {
 			return;
 		}
 		if (
@@ -39,6 +44,7 @@
 		}
 
 		pending = true;
+		mutationRegistration.update(false, true);
 		failure = false;
 
 		try {
@@ -93,11 +99,15 @@
 					<span>{copy.auth.accountMenu.label}</span>
 					<span class="truncate font-normal text-foreground">{user.email}</span>
 				</DropdownMenu.Label>
+				{#if !networkState.online}
+					<p id="app-header-offline-reason" class="px-2 py-1.5 text-sm text-muted-foreground">{networkState.mutationDisabledReason}</p>
+				{/if}
 				<DropdownMenu.Separator />
 				<DropdownMenu.Group>
 					<DropdownMenu.Item
 						class="min-h-11"
-						disabled={pending || hasBlockingForms.current}
+						disabled={!networkState.online || pending || hasBlockingForms.current}
+						aria-describedby={!networkState.online ? "app-header-offline-reason" : undefined}
 						onSelect={(event) => {
 							event.preventDefault();
 							void submitLogout();

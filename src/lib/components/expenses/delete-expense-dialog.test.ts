@@ -1,3 +1,4 @@
+import { withNetworkState } from '../../../tests/network';
 import {
 	cleanup,
 	fireEvent,
@@ -58,6 +59,25 @@ afterEach(() => {
 });
 
 describe('DeleteExpenseDialog', () => {
+	it('blocks offline mutations and permits retry after reconnecting', async () => {
+		await withNetworkState(async (setOnline) => {
+			renderDialog();
+			await fireEvent.click(screen.getByRole('button', { name: 'Delete expense' }));
+			await screen.findByRole('alertdialog');
+			await setOnline(false);
+			const button = screen.getAllByRole('button', { name: 'Delete expense' }).at(-1)!;
+			expect(button).toBeDisabled();
+			expect(
+				screen.getByText('Reconnect to continue. Your entries will stay here.')
+			).toBeInTheDocument();
+			await fireEvent.click(button);
+			expect(mocks.deleteExpense).not.toHaveBeenCalled();
+			await setOnline(true);
+			expect(button).toBeEnabled();
+			expect(mocks.deleteExpense).not.toHaveBeenCalled();
+		});
+	});
+
 	it('commits once, refreshes, and reports the exact delete toast', async () => {
 		const onCommitted = vi.fn().mockResolvedValue({
 			refresh: 'succeeded',
@@ -237,6 +257,7 @@ function navigation(path: string): {
 			type: 'goto',
 			from: null,
 			to: {
+				scroll: null,
 				params: {},
 				route: { id: null },
 				url: new URL(path, 'https://settled.example')

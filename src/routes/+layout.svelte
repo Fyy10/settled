@@ -4,6 +4,7 @@
 	import RouteFocusManager from "$lib/components/app/route-focus-manager.svelte";
 	import RouteLoadingAnnouncer from "$lib/components/app/route-loading-announcer.svelte";
 	import SessionExpirationRedirect from "$lib/components/app/session-expiration-redirect.svelte";
+	import PwaStatus from "$lib/components/app/pwa-status.svelte";
 	import { Toaster } from "$lib/components/ui/sonner";
 	import { copy } from "$lib/copy/en";
 
@@ -15,6 +16,8 @@
 <svelte:head>
 	<title>{copy.appName}</title>
 	<link rel="icon" href={favicon} />
+	<link rel="manifest" href="/manifest.webmanifest" />
+	<meta name="theme-color" content="#2f6f58" />
 </svelte:head>
 
 <a
@@ -28,5 +31,6 @@
 <RouteLoadingAnnouncer active={navigating.to !== null} />
 <SessionExpirationRedirect />
 <Toaster position="top-center" />
+<PwaStatus />
 
 {@render children?.()}

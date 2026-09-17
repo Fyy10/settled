@@ -1,4 +1,12 @@
 export const copy = {
+	pwa: {
+		offline: 'You’re offline. Saved information may be out of date.',
+		mutationDisabled: 'Reconnect to continue. Your entries will stay here.',
+		updateAvailable: 'Update available',
+		updateBlocked: 'Save or discard your changes and wait for pending actions before reloading.',
+		reload: 'Reload',
+		updateFailure: 'The update could not be applied. Try again.'
+	},
 	appName: 'Settled',
 	tagline: 'Shared bills, made clear.',
 	navigation: {

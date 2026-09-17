@@ -1,3 +1,4 @@
+import { withNetworkState } from '../../../tests/network';
 import {
 	cleanup,
 	fireEvent,
@@ -63,6 +64,28 @@ afterEach(() => {
 });
 
 describe('ExpenseForm', () => {
+	it('retains editable entries and blocks direct submission while offline', async () => {
+		await withNetworkState(async (setOnline) => {
+			const save = vi.fn();
+			renderForm({ save });
+			const input = screen.getByLabelText('Description');
+			await fireEvent.input(input, { target: { value: 'Offline dinner' } });
+			await setOnline(false);
+			const button = screen.getAllByRole('button', { name: 'Save changes' }).at(-1)!;
+			expect(button).toBeDisabled();
+			expect(
+				screen.getByText('Reconnect to continue. Your entries will stay here.')
+			).toBeInTheDocument();
+			await fireEvent.submit(input.closest('form')!);
+			expect(save).not.toHaveBeenCalled();
+			expect(input).toHaveValue('Offline dinner');
+			expect(input).toBeEnabled();
+			await setOnline(true);
+			expect(input).toHaveValue('Offline dinner');
+			expect(save).not.toHaveBeenCalled();
+		});
+	});
+
 	it('focuses fields in visual order for client validation', async () => {
 		const draft = validDraft();
 		draft.description = '';
@@ -299,6 +322,7 @@ function navigation(path: string): {
 			type: 'goto',
 			from: null,
 			to: {
+				scroll: null,
 				params: {},
 				route: { id: null },
 				url: new URL(path, 'https://settled.example')

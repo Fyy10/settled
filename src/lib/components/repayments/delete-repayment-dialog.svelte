@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { registerDirtyForm } from "$lib/state/dirty-forms.svelte";
+	import { networkState } from "$lib/state/network.svelte";
 	import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
 	import { onDestroy, tick } from "svelte";
@@ -26,7 +28,7 @@
 		mutation,
 		onCommitted,
 		onNotFound,
-		mutationDisabledReason = null
+		mutationDisabledReason: externalMutationDisabledReason = null
 	}: {
 		groupId: string;
 		repaymentId: string;
@@ -47,6 +49,8 @@
 	let errorAlert: HTMLDivElement | null = $state(null);
 	let controller: AbortController | null = null;
 
+	const mutationDisabledReason = $derived(networkState.mutationDisabledReason ?? externalMutationDisabledReason);
+
 	const pending = $derived(
 		mutation.phase === 'pending' && mutation.operation === 'delete'
 	);
@@ -54,6 +58,10 @@
 	const triggerDisabled = $derived(
 		pending || (controlsLocked && !recoveryNeeded)
 	);
+
+	const mutationRegistration = registerDirtyForm();
+	$effect.pre(() => mutationRegistration.update(false, pending));
+	onDestroy(() => mutationRegistration.unregister());
 
 	onDestroy(() => controller?.abort());
 

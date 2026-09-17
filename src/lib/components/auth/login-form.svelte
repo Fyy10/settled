@@ -1,11 +1,13 @@
 <script lang="ts">
+	import { registerDirtyForm } from "$lib/state/dirty-forms.svelte";
+	import { networkState } from "$lib/state/network.svelte";
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
 	import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
 	import EyeIcon from "@lucide/svelte/icons/eye";
 	import EyeOffIcon from "@lucide/svelte/icons/eye-off";
 	import InfoIcon from "@lucide/svelte/icons/info";
-	import { tick } from "svelte";
+	import { onDestroy, tick } from "svelte";
 
 	import { login } from "$lib/api/auth";
 	import {
@@ -42,6 +44,9 @@
 	let password = $state('');
 	let passwordVisible = $state(false);
 	let pending = $state(false);
+	const mutationRegistration = registerDirtyForm();
+	$effect.pre(() => mutationRegistration.update(Boolean(email || password), pending));
+	onDestroy(() => mutationRegistration.unregister());
 	let fieldErrors = $state<LoginFieldErrors>({});
 	let formAlert = $state<FormAlert | null>(null);
 	let emailInput: HTMLInputElement | null = $state(null);
@@ -54,7 +59,7 @@
 
 	async function submit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		if (pending) {
+		if (!networkState.online || pending) {
 			return;
 		}
 
@@ -66,6 +71,7 @@
 		}
 
 		pending = true;
+		mutationRegistration.update(false, true);
 		let failed = false;
 
 		try {
@@ -150,6 +156,12 @@
 
 	<Card.Content>
 		<form id="login-form" onsubmit={submit} novalidate>
+			{#if !networkState.online}
+				<Alert.Root id="login-form-offline-reason">
+					<Alert.Title>{networkState.mutationDisabledReason}</Alert.Title>
+				</Alert.Root>
+			{/if}
+
 			<Field.Group>
 				{#if sessionExpired}
 					<Alert.Root>
@@ -241,7 +253,13 @@
 	</Card.Content>
 
 	<Card.Footer class="flex-col gap-4">
-		<Button class="min-h-11 w-full" type="submit" form="login-form" disabled={pending}>
+		<Button
+			aria-describedby={!networkState.online ? "login-form-offline-reason" : undefined}
+			class="min-h-11 w-full"
+			type="submit"
+			form="login-form"
+			disabled={!networkState.online || pending}
+		>
 			{#if pending}
 				<Spinner data-icon="inline-start" aria-label={copy.auth.login.pending} />
 				{copy.auth.login.pending}

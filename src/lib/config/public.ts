@@ -1,8 +1,8 @@
 import { dev } from '$app/environment';
-import { env } from '$env/dynamic/public';
+import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 import { resolveApiBaseUrl } from './api-base-url';
 
-export const API_BASE_URL = resolveApiBaseUrl(env.PUBLIC_API_BASE_URL, {
+export const API_BASE_URL = resolveApiBaseUrl(PUBLIC_API_BASE_URL, {
 	production: !dev
 });

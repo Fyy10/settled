@@ -1,3 +1,4 @@
+import { withNetworkState } from '../../../tests/network';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -30,6 +31,27 @@ beforeEach(() => {
 });
 
 describe('LoginForm', () => {
+	it('retains editable entries and blocks direct submission while offline', async () => {
+		await withNetworkState(async (setOnline) => {
+			render(LoginForm);
+			const input = screen.getByLabelText('Email');
+			await fireEvent.input(input, { target: { value: 'person@example.com' } });
+			await setOnline(false);
+			const button = screen.getAllByRole('button', { name: 'Log in' }).at(-1)!;
+			expect(button).toBeDisabled();
+			expect(
+				screen.getByText('Reconnect to continue. Your entries will stay here.')
+			).toBeInTheDocument();
+			await fireEvent.submit(input.closest('form')!);
+			expect(mocks.login).not.toHaveBeenCalled();
+			expect(input).toHaveValue('person@example.com');
+			expect(input).toBeEnabled();
+			await setOnline(true);
+			expect(input).toHaveValue('person@example.com');
+			expect(mocks.login).not.toHaveBeenCalled();
+		});
+	});
+
 	it('uses authentication affordances and toggles password visibility', async () => {
 		render(LoginForm);
 

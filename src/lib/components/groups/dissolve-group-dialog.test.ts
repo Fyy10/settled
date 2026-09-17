@@ -1,3 +1,4 @@
+import { withNetworkState } from '../../../tests/network';
 import {
 	fireEvent,
 	render,
@@ -28,6 +29,32 @@ beforeEach(() => {
 });
 
 describe('DissolveGroupDialog', () => {
+	it('retains editable entries and blocks direct submission while offline', async () => {
+		await withNetworkState(async (setOnline) => {
+			render(DissolveGroupDialog, {
+				group: groupDetailFixture.group,
+				onDissolved: vi.fn(),
+				onProtectedError: vi.fn()
+			});
+			await openDialog();
+			const input = screen.getByLabelText('Type the current group name to confirm');
+			await fireEvent.input(input, { target: { value: 'Lake Trip' } });
+			await setOnline(false);
+			const button = screen.getAllByRole('button', { name: 'Dissolve group' }).at(-1)!;
+			expect(button).toBeDisabled();
+			expect(
+				screen.getByText('Reconnect to continue. Your entries will stay here.')
+			).toBeInTheDocument();
+			await fireEvent.submit(input.closest('form')!);
+			expect(mocks.dissolveGroup).not.toHaveBeenCalled();
+			expect(input).toHaveValue('Lake Trip');
+			expect(input).toBeEnabled();
+			await setOnline(true);
+			expect(input).toHaveValue('Lake Trip');
+			expect(mocks.dissolveGroup).not.toHaveBeenCalled();
+		});
+	});
+
 	it('requires an exact case-sensitive name and locks the committed mutation', async () => {
 		const continuation = deferred<void>();
 		const onDissolved = vi.fn().mockReturnValue(continuation.promise);

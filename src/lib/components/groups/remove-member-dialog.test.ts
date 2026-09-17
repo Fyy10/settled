@@ -1,3 +1,4 @@
+import { withNetworkState } from '../../../tests/network';
 import {
 	fireEvent,
 	render,
@@ -41,6 +42,24 @@ beforeEach(() => {
 });
 
 describe('RemoveMemberDialog', () => {
+	it('blocks offline mutations and permits retry after reconnecting', async () => {
+		await withNetworkState(async (setOnline) => {
+			renderDialog();
+			await openDialog();
+			await setOnline(false);
+			const button = screen.getAllByRole('button', { name: 'Remove member' }).at(-1)!;
+			expect(button).toBeDisabled();
+			expect(
+				screen.getByText('Reconnect to continue. Your entries will stay here.')
+			).toBeInTheDocument();
+			await fireEvent.click(button);
+			expect(mocks.removeGroupMember).not.toHaveBeenCalled();
+			await setOnline(true);
+			expect(button).toBeEnabled();
+			expect(mocks.removeGroupMember).not.toHaveBeenCalled();
+		});
+	});
+
 	it('keeps a 409 conflict open, retains the member action, and focuses the exact explanation', async () => {
 		mocks.removeGroupMember.mockRejectedValue(
 			new ApiError({

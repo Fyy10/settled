@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { registerDirtyForm } from "$lib/state/dirty-forms.svelte";
+	import { networkState } from "$lib/state/network.svelte";
 	import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
 	import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
 	import { onDestroy, tick } from "svelte";
@@ -35,6 +37,9 @@
 	let open = $state(false);
 	let confirmation = $state('');
 	let pending = $state(false);
+	const mutationRegistration = registerDirtyForm();
+	$effect.pre(() => mutationRegistration.update(open && Boolean(confirmation), pending));
+	onDestroy(() => mutationRegistration.unregister());
 	let committed = $state(false);
 	let formError = $state('');
 	let postCommitError = $state(false);
@@ -44,7 +49,7 @@
 	let controller: AbortController | null = null;
 
 	const canDissolve = $derived(
-		!pending && !committed && confirmation === group.name
+		networkState.online && !pending && !committed && confirmation === group.name
 	);
 
 	onDestroy(() => controller?.abort());
@@ -71,6 +76,7 @@
 		}
 
 		pending = true;
+		mutationRegistration.update(false, true);
 		formError = '';
 		controller?.abort();
 		controller = new AbortController();
@@ -169,6 +175,12 @@
 				</AlertDialog.Header>
 
 				<form id="dissolve-group-form" onsubmit={submit} novalidate>
+					{#if !networkState.online}
+						<Alert.Root id="dissolve-group-dialog-offline-reason">
+							<Alert.Title>{networkState.mutationDisabledReason}</Alert.Title>
+						</Alert.Root>
+					{/if}
+
 					<Field.Group>
 						{#if formError}
 							<Alert.Root
@@ -222,11 +234,12 @@
 						{copy.groups.settings.danger.cancel}
 					</Button>
 					<Button
+						aria-describedby={!networkState.online ? "dissolve-group-dialog-offline-reason" : undefined}
 						type="submit"
 						form="dissolve-group-form"
 						variant="destructive"
 						class="min-h-11"
-						disabled={!canDissolve}
+						disabled={!networkState.online || !canDissolve}
 					>
 						{#if pending || committed}
 							<Spinner

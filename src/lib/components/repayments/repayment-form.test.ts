@@ -1,3 +1,4 @@
+import { withNetworkState } from '../../../tests/network';
 import {
 	cleanup,
 	fireEvent,
@@ -67,6 +68,28 @@ afterEach(async () => {
 });
 
 describe('RepaymentForm', () => {
+	it('retains editable entries and blocks direct submission while offline', async () => {
+		await withNetworkState(async (setOnline) => {
+			const save = vi.fn();
+			renderForm({ save });
+			const input = screen.getByLabelText('Note (optional)');
+			await fireEvent.input(input, { target: { value: 'Offline payment' } });
+			await setOnline(false);
+			const button = screen.getAllByRole('button', { name: 'Save changes' }).at(-1)!;
+			expect(button).toBeDisabled();
+			expect(
+				screen.getByText('Reconnect to continue. Your entries will stay here.')
+			).toBeInTheDocument();
+			await fireEvent.submit(input.closest('form')!);
+			expect(save).not.toHaveBeenCalled();
+			expect(input).toHaveValue('Offline payment');
+			expect(input).toBeEnabled();
+			await setOnline(true);
+			expect(input).toHaveValue('Offline payment');
+			expect(save).not.toHaveBeenCalled();
+		});
+	});
+
 	it('always explains the off-app record and allows another member as sender', () => {
 		const { container } = renderForm();
 
@@ -469,6 +492,7 @@ function navigation(path: string): {
 			type: 'goto',
 			from: null,
 			to: {
+				scroll: null,
 				params: {},
 				route: { id: null },
 				url: new URL(path, 'https://settled.example')

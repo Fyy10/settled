@@ -7,6 +7,7 @@
 	import DialogPortal from "./dialog-portal.svelte";
 	import type { Snippet } from "svelte";
 	import type { ComponentProps } from "svelte";
+	import { trackDialogViewport } from "./visual-viewport";
 
 	let {
 		ref = $bindable(null),
@@ -20,6 +21,12 @@
 		children: Snippet;
 		showCloseButton?: boolean;
 	} = $props();
+
+	$effect(() => {
+		if (ref) {
+			return trackDialogViewport(ref);
+		}
+	});
 </script>
 
 <DialogPortal {...portalProps}>

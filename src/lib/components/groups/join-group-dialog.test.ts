@@ -1,3 +1,4 @@
+import { withNetworkState } from '../../../tests/network';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -19,6 +20,28 @@ beforeEach(() => {
 });
 
 describe('JoinGroupDialog', () => {
+	it('retains editable entries and blocks direct submission while offline', async () => {
+		await withNetworkState(async (setOnline) => {
+			render(JoinGroupDialog, { onSuccess: vi.fn() });
+			await openJoinDialog();
+			const input = screen.getByLabelText('Group code');
+			await fireEvent.input(input, { target: { value: 'ABCD1234' } });
+			await setOnline(false);
+			const button = screen.getAllByRole('button', { name: 'Join group' }).at(-1)!;
+			expect(button).toBeDisabled();
+			expect(
+				screen.getByText('Reconnect to continue. Your entries will stay here.')
+			).toBeInTheDocument();
+			await fireEvent.submit(input.closest('form')!);
+			expect(mocks.joinGroup).not.toHaveBeenCalled();
+			expect(input).toHaveValue('ABCD1234');
+			expect(input).toBeEnabled();
+			await setOnline(true);
+			expect(input).toHaveValue('ABCD1234');
+			expect(mocks.joinGroup).not.toHaveBeenCalled();
+		});
+	});
+
 	it('focuses a paste-friendly normal input and normalizes its visible value', async () => {
 		render(JoinGroupDialog, { onSuccess: vi.fn() });
 		await openJoinDialog();

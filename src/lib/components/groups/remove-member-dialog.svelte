@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { registerDirtyForm } from "$lib/state/dirty-forms.svelte";
+	import { networkState } from "$lib/state/network.svelte";
 	import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
 	import UserMinusIcon from "@lucide/svelte/icons/user-minus";
 	import { onDestroy, tick } from "svelte";
@@ -43,6 +45,9 @@
 
 	let open = $state(false);
 	let pending = $state(false);
+	const mutationRegistration = registerDirtyForm();
+	$effect.pre(() => mutationRegistration.update(false, pending));
+	onDestroy(() => mutationRegistration.unregister());
 	let committed = $state(false);
 	let errorMessage = $state('');
 	let triggerButton: HTMLButtonElement | null = $state(null);
@@ -63,11 +68,12 @@
 	}
 
 	async function removeMember(): Promise<void> {
-		if (pending || committed) {
+		if (!networkState.online || pending || committed) {
 			return;
 		}
 
 		pending = true;
+		mutationRegistration.update(false, true);
 		errorMessage = '';
 		controller?.abort();
 		controller = new AbortController();
@@ -208,6 +214,12 @@
 			</Alert.Root>
 		{/if}
 
+		{#if !networkState.online}
+			<Alert.Root id="remove-member-dialog-offline-reason">
+				<Alert.Title>{networkState.mutationDisabledReason}</Alert.Title>
+			</Alert.Root>
+		{/if}
+
 		<AlertDialog.Footer>
 			<Button
 				variant="outline"
@@ -220,9 +232,10 @@
 				{copy.groups.workspace.members.removeCancel}
 			</Button>
 			<Button
+				aria-describedby={!networkState.online ? "remove-member-dialog-offline-reason" : undefined}
 				variant="destructive"
 				class="min-h-11"
-				disabled={pending}
+				disabled={!networkState.online || pending}
 				onclick={() => void removeMember()}
 			>
 				{#if pending}

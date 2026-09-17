@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { registerDirtyForm } from "$lib/state/dirty-forms.svelte";
+	import { networkState } from "$lib/state/network.svelte";
 	import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
 	import { onDestroy, tick, untrack } from "svelte";
 	import { toast } from "svelte-sonner";
@@ -46,6 +48,9 @@
 	let name = $state('');
 	let syncedName = $state('');
 	let pending = $state(false);
+	const mutationRegistration = registerDirtyForm();
+	$effect.pre(() => mutationRegistration.update(name !== syncedName, pending));
+	onDestroy(() => mutationRegistration.unregister());
 	let fieldErrors = $state<CreateGroupFieldErrors>({});
 	let formAlert = $state<FormAlert | null>(null);
 	let nameInput: HTMLInputElement | null = $state(null);
@@ -71,7 +76,7 @@
 
 	async function submit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		if (pending) {
+		if (!networkState.online || pending) {
 			return;
 		}
 
@@ -83,6 +88,7 @@
 		}
 
 		pending = true;
+		mutationRegistration.update(false, true);
 		controller?.abort();
 		controller = new AbortController();
 		let renamed: GroupSummary;
@@ -183,6 +189,12 @@
 	</Card.Header>
 	<Card.Content>
 		<form onsubmit={submit} novalidate>
+			{#if !networkState.online}
+				<Alert.Root id="rename-group-form-offline-reason">
+					<Alert.Title>{networkState.mutationDisabledReason}</Alert.Title>
+				</Alert.Root>
+			{/if}
+
 			<Field.Group>
 				{#if formAlert}
 					<Alert.Root
@@ -229,7 +241,12 @@
 							</Field.Error>
 						{/if}
 					</Field.Content>
-					<Button type="submit" class="min-h-11 sm:self-end" disabled={pending}>
+					<Button
+						aria-describedby={!networkState.online ? "rename-group-form-offline-reason" : undefined}
+						type="submit"
+						class="min-h-11 sm:self-end"
+						disabled={!networkState.online || pending}
+					>
 						{#if pending}
 							<Spinner
 								data-icon="inline-start"
