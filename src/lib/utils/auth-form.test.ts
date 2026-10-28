@@ -24,17 +24,34 @@ describe('login form validation', () => {
 });
 
 describe('registration form validation', () => {
+	it('requires confirmation and compares passwords exactly without trimming', () => {
+		const values = { displayName: 'Alice', email: 'alice@example.com', password: 'password' };
+		expect(validateRegistrationForm({ ...values, confirmPassword: '' })).toEqual({
+			confirmPassword: 'Confirm your password.'
+		});
+		for (const confirmPassword of ['different', 'Password', 'password ']) {
+			expect(validateRegistrationForm({ ...values, confirmPassword })).toEqual({
+				confirmPassword: 'Passwords do not match.'
+			});
+		}
+		expect(validateRegistrationForm({ ...values, confirmPassword: 'password' })).toEqual({});
+	});
+
 	it('requires all fields and catches an obvious email shape', () => {
-		expect(validateRegistrationForm({ displayName: ' ', email: '', password: '' })).toEqual({
+		expect(
+			validateRegistrationForm({ displayName: ' ', email: '', password: '', confirmPassword: '' })
+		).toEqual({
 			displayName: 'Enter your display name.',
 			email: 'Enter your email address.',
-			password: 'Use 8–128 characters.'
+			password: 'Use 8–128 characters.',
+			confirmPassword: 'Confirm your password.'
 		});
 		expect(
 			validateRegistrationForm({
 				displayName: 'Alice',
 				email: 'alice.example.com',
-				password: 'password'
+				password: 'password',
+				confirmPassword: 'password'
 			})
 		).toEqual({ email: 'Enter a valid email address.' });
 	});
@@ -44,14 +61,16 @@ describe('registration form validation', () => {
 			validateRegistrationForm({
 				displayName: '𠮷'.repeat(120),
 				email: 'alice@example.com',
-				password: 'password'
+				password: 'password',
+				confirmPassword: 'password'
 			})
 		).toEqual({});
 		expect(
 			validateRegistrationForm({
 				displayName: '𠮷'.repeat(121),
 				email: 'alice@example.com',
-				password: 'password'
+				password: 'password',
+				confirmPassword: 'password'
 			})
 		).toEqual({
 			displayName: 'Display name must not exceed 120 characters.'
@@ -63,21 +82,24 @@ describe('registration form validation', () => {
 			validateRegistrationForm({
 				displayName: 'Alice',
 				email: 'alice@example.com',
-				password: '密密密'
+				password: '密密密',
+				confirmPassword: '密密密'
 			})
 		).toEqual({});
 		expect(
 			validateRegistrationForm({
 				displayName: 'Alice',
 				email: 'alice@example.com',
-				password: `${'a'.repeat(126)}密`
+				password: `${'a'.repeat(126)}密`,
+				confirmPassword: `${'a'.repeat(126)}密`
 			})
 		).toEqual({ password: 'Use 8–128 characters.' });
 		expect(
 			validateRegistrationForm({
 				displayName: 'Alice',
 				email: 'alice@example.com',
-				password: 'a'.repeat(128)
+				password: 'a'.repeat(128),
+				confirmPassword: 'a'.repeat(128)
 			})
 		).toEqual({});
 	});

@@ -11,6 +11,7 @@ export type RegistrationFormValues = {
 	displayName: string;
 	email: string;
 	password: string;
+	confirmPassword: string;
 };
 
 export type RegistrationFieldErrors = Partial<
@@ -53,6 +54,12 @@ export function validateRegistrationForm(
 	}
 	if (passwordBytes < 8 || passwordBytes > 128) {
 		errors.password = copy.auth.register.passwordInvalid;
+	}
+
+	if (values.confirmPassword === '') {
+		errors.confirmPassword = copy.auth.register.confirmPasswordRequired;
+	} else if (values.confirmPassword !== values.password) {
+		errors.confirmPassword = copy.auth.register.passwordMismatch;
 	}
 
 	return errors;

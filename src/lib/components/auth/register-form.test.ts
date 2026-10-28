@@ -28,6 +28,56 @@ beforeEach(() => {
 });
 
 describe('RegisterForm', () => {
+	it.each([
+		['', 'Confirm your password.'],
+		['different', 'Passwords do not match.']
+	])('blocks registration with confirmation %j and focuses the field', async (confirmation, message) => {
+		render(RegisterForm);
+		await fillRegistration('Alice', 'alice@example.com', 'password', confirmation);
+		await fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+		const input = screen.getByLabelText('Confirm password');
+		expect(await screen.findByText(message)).toHaveAttribute(
+			'id',
+			'register-confirm-password-error'
+		);
+		expect(input).toHaveAttribute('aria-invalid', 'true');
+		expect(input).toHaveAttribute('aria-describedby', 'register-confirm-password-error');
+		await waitFor(() => expect(input).toHaveFocus());
+		expect(mocks.register).not.toHaveBeenCalled();
+
+		await fireEvent.input(input, { target: { value: 'password' } });
+		mocks.register.mockResolvedValue(currentUserFixture.user);
+		await fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+		await waitFor(() => expect(mocks.register).toHaveBeenCalledOnce());
+		expect(mocks.register).toHaveBeenCalledWith({
+			displayName: 'Alice',
+			email: 'alice@example.com',
+			password: 'password'
+		});
+		expect(screen.queryByText(message)).not.toBeInTheDocument();
+	});
+
+	it('checks confirmation against an edited password and toggles visibility independently', async () => {
+		render(RegisterForm);
+		await fillRegistration('Alice', 'alice@example.com', 'password');
+		const confirmation = screen.getByLabelText('Confirm password');
+		expect(confirmation).toHaveAttribute('type', 'password');
+		expect(confirmation).toHaveAttribute('autocomplete', 'new-password');
+		await fireEvent.click(screen.getByRole('button', { name: 'Show confirmed password' }));
+		expect(confirmation).toHaveAttribute('type', 'text');
+		expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password');
+		await fireEvent.click(screen.getByRole('button', { name: 'Hide confirmed password' }));
+		expect(confirmation).toHaveAttribute('type', 'password');
+
+		await fireEvent.input(screen.getByLabelText('Password'), {
+			target: { value: 'new-password' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+		expect(await screen.findByText('Passwords do not match.')).toBeInTheDocument();
+		expect(mocks.register).not.toHaveBeenCalled();
+	});
+
 	it('retains editable entries and blocks direct submission while offline', async () => {
 		await withNetworkState(async (setOnline) => {
 			render(RegisterForm);
@@ -130,6 +180,7 @@ describe('RegisterForm', () => {
 		await fireEvent.click(submit);
 
 		expect(screen.getByRole('button', { name: /creating account/i })).toBeDisabled();
+		expect(screen.getByLabelText('Confirm password')).toBeDisabled();
 		expect(mocks.register).toHaveBeenCalledWith({
 			displayName: 'Alice',
 			email: 'alice@example.com',
@@ -149,7 +200,8 @@ describe('RegisterForm', () => {
 async function fillRegistration(
 	displayName: string,
 	email: string,
-	password: string
+	password: string,
+	confirmPassword = password
 ): Promise<void> {
 	await fireEvent.input(screen.getByLabelText('Display name'), {
 		target: { value: displayName }
@@ -159,6 +211,9 @@ async function fillRegistration(
 	});
 	await fireEvent.input(screen.getByLabelText('Password'), {
 		target: { value: password }
+	});
+	await fireEvent.input(screen.getByLabelText('Confirm password'), {
+		target: { value: confirmPassword }
 	});
 }
 

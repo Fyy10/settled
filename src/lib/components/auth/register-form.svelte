@@ -41,16 +41,21 @@
 	let displayName = $state('');
 	let email = $state('');
 	let password = $state('');
+	let confirmPassword = $state('');
+	let confirmPasswordVisible = $state(false);
 	let passwordVisible = $state(false);
 	let pending = $state(false);
 	const mutationRegistration = registerDirtyForm();
-	$effect.pre(() => mutationRegistration.update(Boolean(displayName || email || password), pending));
+	$effect.pre(() =>
+		mutationRegistration.update(Boolean(displayName || email || password || confirmPassword), pending)
+	);
 	onDestroy(() => mutationRegistration.unregister());
 	let fieldErrors = $state<RegistrationFieldErrors>({});
 	let formAlert = $state<FormAlert | null>(null);
 	let displayNameInput: HTMLInputElement | null = $state(null);
 	let emailInput: HTMLInputElement | null = $state(null);
 	let passwordInput: HTMLInputElement | null = $state(null);
+	let confirmPasswordInput: HTMLInputElement | null = $state(null);
 	let formAlertElement: HTMLDivElement | null = $state(null);
 
 	async function submit(event: SubmitEvent): Promise<void> {
@@ -59,7 +64,7 @@
 			return;
 		}
 
-		fieldErrors = validateRegistrationForm({ displayName, email, password });
+		fieldErrors = validateRegistrationForm({ displayName, email, password, confirmPassword });
 		formAlert = null;
 		if (Object.keys(fieldErrors).length > 0) {
 			await focusFailure();
@@ -139,6 +144,11 @@
 		}
 		if (fieldErrors.password) {
 			passwordInput?.focus();
+			return;
+		}
+
+		if (fieldErrors.confirmPassword) {
+			confirmPasswordInput?.focus();
 			return;
 		}
 
@@ -274,6 +284,53 @@
 					</Field.Description>
 					{#if fieldErrors.password}
 						<Field.Error id="register-password-error">{fieldErrors.password}</Field.Error>
+					{/if}
+				</Field.Field>
+
+				<Field.Field
+					data-invalid={fieldErrors.confirmPassword ? true : undefined}
+					data-disabled={pending ? true : undefined}
+				>
+					<Field.Label for="register-confirm-password">
+						{copy.auth.register.confirmPasswordLabel}
+					</Field.Label>
+					<InputGroup.Root>
+						<InputGroup.Input
+							bind:ref={confirmPasswordInput}
+							bind:value={confirmPassword}
+							id="register-confirm-password"
+							name="confirmPassword"
+							type={confirmPasswordVisible ? 'text' : 'password'}
+							autocomplete="new-password"
+							disabled={pending}
+							required
+							aria-invalid={fieldErrors.confirmPassword ? true : undefined}
+							aria-describedby={fieldErrors.confirmPassword
+								? 'register-confirm-password-error'
+								: undefined}
+						/>
+						<InputGroup.Addon align="inline-end">
+							<InputGroup.Button
+								size="icon-sm"
+								disabled={pending}
+								aria-label={confirmPasswordVisible
+									? copy.auth.register.hideConfirmPassword
+									: copy.auth.register.showConfirmPassword}
+								aria-pressed={confirmPasswordVisible}
+								onclick={() => (confirmPasswordVisible = !confirmPasswordVisible)}
+							>
+								{#if confirmPasswordVisible}
+									<EyeOffIcon data-icon="inline-start" />
+								{:else}
+									<EyeIcon data-icon="inline-start" />
+								{/if}
+							</InputGroup.Button>
+						</InputGroup.Addon>
+					</InputGroup.Root>
+					{#if fieldErrors.confirmPassword}
+						<Field.Error id="register-confirm-password-error">
+							{fieldErrors.confirmPassword}
+						</Field.Error>
 					{/if}
 				</Field.Field>
 			</Field.Group>
