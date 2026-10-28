@@ -1,14 +1,12 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
+	import { untrack } from "svelte";
 	import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
 	import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
 
-	import {
-		isNotFoundApiError,
-		isUnauthorizedApiError
-	} from "$lib/api/errors";
+	import { isNotFoundApiError, isUnauthorizedApiError } from "$lib/api/errors";
 	import { createExpense } from "$lib/api/expenses";
-	import type { Expense } from "$lib/api/types";
+	import type { Expense, GroupMember } from "$lib/api/types";
 	import ExpenseForm from "$lib/components/expenses/expense-form.svelte";
 	import * as Alert from "$lib/components/ui/alert";
 	import { Button } from "$lib/components/ui/button";
@@ -24,69 +22,72 @@
 	import {
 		createExpenseDraft,
 		type ExpenseDraft,
-		type ExpenseInput
+		type ExpenseInput,
 	} from "$lib/utils/expense-draft";
 	import { pageTitle } from "$lib/utils/page-title";
 
 	const groupDetail = useGroupDetailContext();
 	const accounting = useGroupAccounting();
-	let mutation = $state(new MutationCoordinator<'save' | 'delete'>());
-	let mutationGroupId = '';
-	let initializedGroupId = '';
+	let mutation = $state(new MutationCoordinator<"save" | "delete">());
+	let mutationGroupId = "";
+	let members = $state<GroupMember[]>([]);
+	let memberLoadFailed = $state(false);
+	let refreshAttempt = $state(0);
 	let initialDraft = $state<ExpenseDraft | null>(null);
 	let memberMismatch = $state(false);
 	let mutationDisabledReason = $state<string | null>(null);
 
 	const groupPath = $derived(
-		`/groups/${encodeURIComponent(groupDetail.groupId)}`
+		`/groups/${encodeURIComponent(groupDetail.groupId)}`,
 	);
 	const activityPath = $derived(`${groupPath}?view=activity`);
 
 	$effect(() => {
 		const groupId = groupDetail.groupId;
-		const members = groupDetail.members;
-		if (mutationGroupId !== groupId) {
-			mutation = new MutationCoordinator<'save' | 'delete'>();
-			mutationGroupId = groupId;
-		}
-		if (
-			initializedGroupId !== '' &&
-			initializedGroupId !== groupId
-		) {
-			initialDraft = null;
-			initializedGroupId = '';
-			memberMismatch = false;
-		}
-		if (
-			groupDetail.status !== 'ready' ||
-			groupDetail.group === null ||
-			groupId === '' ||
-			members.length === 0 ||
-			initializedGroupId === groupId
-		) {
-			return;
-		}
+		refreshAttempt;
+		if (groupId === "") return;
+		let cancelled = false;
 
-		const currentUserId =
-			authState.current.status === 'authenticated'
-				? authState.current.user.id
-				: '';
-		if (!members.some((member) => member.userId === currentUserId)) {
-			memberMismatch = true;
-			initializedGroupId = groupId;
-			return;
-		}
-		initialDraft = createExpenseDraft({
-			paidByUserId: currentUserId,
-			expenseDate: currentLocalDate(),
-			participantUserIds: members.map((member) => member.userId)
+		untrack(() => {
+			if (mutationGroupId !== groupId) {
+				mutation = new MutationCoordinator<"save" | "delete">();
+				mutationGroupId = groupId;
+			}
+			initialDraft = null;
+			memberMismatch = false;
+			memberLoadFailed = false;
+			void groupDetail
+				.refreshDetail()
+				.then((detail) => {
+					if (cancelled) return;
+					members = detail.members;
+					const currentUserId =
+						authState.current.status === "authenticated"
+							? authState.current.user.id
+							: "";
+					if (!members.some((member) => member.userId === currentUserId)) {
+						memberMismatch = true;
+						return;
+					}
+					initialDraft = createExpenseDraft({
+						paidByUserId: currentUserId,
+						expenseDate: currentLocalDate(),
+						participantUserIds: members.map((member) => member.userId),
+					});
+				})
+				.catch(() => {
+					if (!cancelled) memberLoadFailed = true;
+				});
 		});
-		initializedGroupId = groupId;
+
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	function save(
 		input: ExpenseInput,
-		options: { signal: AbortSignal }
+		options: { signal: AbortSignal },
 	): Promise<Expense> {
 		return createExpense(groupDetail.groupId, input, options);
 	}
@@ -94,20 +95,16 @@
 	function finish(): ReturnType<typeof finishCommittedMutation> {
 		return finishCommittedMutation({
 			refresh: () => accounting.refreshAfterExpenseMutation(),
-			navigate: navigateAfterRefresh
+			navigate: navigateAfterRefresh,
 		});
 	}
 
 	function navigateAfterRefresh(): Promise<unknown> {
-		const errors = [
-			accounting.expenses.error,
-			accounting.settlements.error
-		];
+		const errors = [accounting.expenses.error, accounting.settlements.error];
 		if (
-			groupDetail.status !== 'ready' ||
+			groupDetail.status !== "ready" ||
 			errors.some(
-				(error) =>
-					isUnauthorizedApiError(error) || isNotFoundApiError(error)
+				(error) => isUnauthorizedApiError(error) || isNotFoundApiError(error),
 			)
 		) {
 			return Promise.resolve();
@@ -116,14 +113,14 @@
 	}
 
 	async function resolveNotFound(): Promise<
-		'record' | 'handled' | 'retryable'
+		"record" | "handled" | "retryable"
 	> {
 		try {
 			await groupDetail.refreshDetail();
 		} catch {
 			// The route layout owns hidden-group and session states.
 		}
-		return groupDetail.status === 'ready' ? 'retryable' : 'handled';
+		return groupDetail.status === "ready" ? "retryable" : "handled";
 	}
 </script>
 
@@ -132,12 +129,12 @@
 		{pageTitle(
 			groupDetail.group === null
 				? copy.routes.addExpense.documentTitle
-				: `${copy.routes.addExpense.documentTitle} · ${groupDetail.group.name}`
+				: `${copy.routes.addExpense.documentTitle} · ${groupDetail.group.name}`,
 		)}
 	</title>
 </svelte:head>
 
-{#if groupDetail.status === 'ready' && groupDetail.group !== null}
+{#if groupDetail.status === "ready" && groupDetail.group !== null}
 	<section
 		class="mx-auto flex w-full max-w-2xl flex-col gap-5 pb-4"
 		aria-labelledby="expense-page-heading"
@@ -163,7 +160,17 @@
 
 		<Card.Root class="overflow-visible">
 			<Card.Content>
-				{#if memberMismatch}
+				{#if memberLoadFailed}
+					<Alert.Root variant="destructive">
+						<CircleAlertIcon data-icon="inline-start" />
+						<Alert.Title>{copy.groups.workspace.loadFailureTitle}</Alert.Title>
+						<Alert.Description>
+							<Button variant="outline" onclick={() => (refreshAttempt += 1)}
+								>{copy.groups.workspace.retry}</Button
+							>
+						</Alert.Description>
+					</Alert.Root>
+				{:else if memberMismatch}
 					<Alert.Root variant="destructive">
 						<CircleAlertIcon data-icon="inline-start" />
 						<Alert.Title>{copy.groups.expenses.memberMismatch}</Alert.Title>
@@ -172,7 +179,7 @@
 					{#key groupDetail.groupId}
 						<ExpenseForm
 							mode="create"
-							members={groupDetail.members}
+							{members}
 							{initialDraft}
 							cancelHref={activityPath}
 							{mutation}

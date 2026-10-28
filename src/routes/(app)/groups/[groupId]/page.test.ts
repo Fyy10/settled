@@ -91,6 +91,82 @@ beforeEach(() => {
 });
 
 describe('group workspace loading and navigation', () => {
+	it.each([
+		['balances', 'Balances'],
+		['activity', 'Activity'],
+		['members', 'Members']
+	])('marks only the %s tab as selected', (view, label) => {
+		mocks.page.url = new URL(
+			`https://settled.test/groups/${groupDetailFixture.group.id}?view=${view}`
+		);
+		render(GroupPage);
+
+		for (const tab of screen.getAllByRole('tab')) {
+			const selected = tab.textContent?.trim() === label;
+			expect(tab).toHaveAttribute('aria-selected', String(selected));
+			expect(tab).toHaveAttribute(
+				'data-state',
+				selected ? 'active' : 'inactive'
+			);
+		}
+	});
+
+	it.each([
+		{
+			tab: 'Balances',
+			view: 'activity',
+			expenses: 1,
+			repayments: 1,
+			settlements: 2
+		},
+		{
+			tab: 'Activity',
+			view: 'balances',
+			expenses: 2,
+			repayments: 2,
+			settlements: 1
+		},
+		{
+			tab: 'Members',
+			view: 'balances',
+			expenses: 1,
+			repayments: 1,
+			settlements: 1
+		}
+	])(
+		'refreshes current data when switching to $tab',
+		async ({ tab, view, expenses, repayments, settlements }) => {
+			mocks.page.url = new URL(
+				`https://settled.test/groups/${groupDetailFixture.group.id}?view=${view}`
+			);
+			render(GroupPage);
+			await waitFor(() => {
+				expect(mocks.accounting?.settlements.status).toBe('ready');
+				expect(mocks.accounting?.expenses.status).toBe('ready');
+				expect(mocks.accounting?.repayments.status).toBe('ready');
+			});
+
+			await fireEvent.click(screen.getByRole('tab', { name: tab }));
+
+			await waitFor(() => {
+				expect(mocks.context.refreshDetail).toHaveBeenCalledOnce();
+				expect(mocks.listExpenses).toHaveBeenCalledTimes(expenses);
+				expect(mocks.listRepayments).toHaveBeenCalledTimes(repayments);
+				expect(mocks.listSettlements).toHaveBeenCalledTimes(settlements);
+			});
+		}
+	);
+
+	it('does not refresh when clicking the selected tab', async () => {
+		render(GroupPage);
+		await waitFor(() =>
+			expect(mocks.accounting?.settlements.status).toBe('ready')
+		);
+		await fireEvent.click(screen.getByRole('tab', { name: 'Balances' }));
+		expect(mocks.context.refreshDetail).not.toHaveBeenCalled();
+		expect(mocks.listSettlements).toHaveBeenCalledOnce();
+	});
+
 	it('starts all overview requests together and renders the responsive workspace', async () => {
 		const expensePending = deferred();
 		const repaymentPending = deferred();
@@ -106,10 +182,18 @@ describe('group workspace loading and navigation', () => {
 			expect(mocks.listRepayments).toHaveBeenCalledOnce();
 			expect(mocks.listSettlements).toHaveBeenCalledOnce();
 		});
-		expect(screen.getByRole('heading', { level: 1, name: 'Lake Trip' })).toBeInTheDocument();
-		expect(screen.getByRole('tablist', { name: 'Group views' })).toBeInTheDocument();
-		expect(screen.getAllByRole('link', { name: 'Add expense' })).toHaveLength(2);
-		expect(screen.getAllByRole('link', { name: 'Record payment' })).toHaveLength(2);
+		expect(
+			screen.getByRole('heading', { level: 1, name: 'Lake Trip' })
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole('tablist', { name: 'Group views' })
+		).toBeInTheDocument();
+		expect(screen.getAllByRole('link', { name: 'Add expense' })).toHaveLength(
+			2
+		);
+		expect(
+			screen.getAllByRole('link', { name: 'Record payment' })
+		).toHaveLength(2);
 
 		const signals = [
 			mocks.listExpenses.mock.calls[0][1].signal,
@@ -197,7 +281,10 @@ describe('independent group workspace failures', () => {
 		);
 		mocks.listExpenses
 			.mockRejectedValueOnce(networkError(new TypeError('Failed to fetch')))
-			.mockResolvedValueOnce({ expenses: [], members: expenseListFixture.members });
+			.mockResolvedValueOnce({
+				expenses: [],
+				members: expenseListFixture.members
+			});
 		mocks.listRepayments.mockResolvedValue({
 			repayments: [],
 			members: repaymentListFixture.members
@@ -205,9 +292,7 @@ describe('independent group workspace failures', () => {
 
 		render(GroupPage);
 
-		await fireEvent.click(
-			await screen.findByRole('button', { name: 'Retry' })
-		);
+		await fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
 
 		expect(await screen.findByText('No activity yet')).toBeInTheDocument();
 		expect(mocks.listExpenses).toHaveBeenCalledTimes(2);
@@ -324,7 +409,9 @@ describe('owner member removal revalidation', () => {
 		);
 
 		expect(
-			await screen.findByText('Settled could not remove this member. Try again.')
+			await screen.findByText(
+				'Settled could not remove this member. Try again.'
+			)
 		).toBeInTheDocument();
 		expect(screen.getByRole('alertdialog')).toBeInTheDocument();
 		expect(mocks.context.refreshDetail).toHaveBeenCalledOnce();

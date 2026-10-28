@@ -89,7 +89,9 @@ beforeEach(() => {
 	mocks.groupDetail.status = 'ready';
 	mocks.groupDetail.group = groupDetailFixture.group;
 	mocks.groupDetail.members = [...groupDetailFixture.members];
-	mocks.groupDetail.refreshDetail.mockReset().mockResolvedValue(groupDetailFixture);
+	mocks.groupDetail.refreshDetail
+		.mockReset()
+		.mockResolvedValue(groupDetailFixture);
 	mocks.accounting.expenses.error = null;
 	mocks.accounting.settlements.error = null;
 	mocks.accounting.refreshAfterExpenseMutation
@@ -100,19 +102,49 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('add expense route', () => {
+	it('waits for fresh members before initializing the draft', async () => {
+		let resolve!: (value: typeof groupDetailFixture) => void;
+		mocks.groupDetail.refreshDetail.mockReturnValue(
+			new Promise((done) => {
+				resolve = done;
+			})
+		);
+		render(AddExpensePage);
+		expect(screen.queryByText('Review split')).not.toBeInTheDocument();
+		await waitFor(() =>
+			expect(mocks.groupDetail.refreshDetail).toHaveBeenCalledOnce()
+		);
+		resolve({
+			...groupDetailFixture,
+			members: [groupDetailFixture.members[0]]
+		});
+		await screen.findByText('Review split');
+		expect(screen.getAllByRole('checkbox')).toHaveLength(1);
+	});
+
+	it('blocks stale members on refresh failure and supports retry', async () => {
+		mocks.groupDetail.refreshDetail.mockRejectedValueOnce(new Error('Offline'));
+		render(AddExpensePage);
+		await fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+		await screen.findByText('Review split');
+		expect(mocks.groupDetail.refreshDetail).toHaveBeenCalledTimes(2);
+	});
+
 	it('defaults to the authenticated member, local date, equal mode, and every member in API order', async () => {
 		const { container } = render(AddExpensePage);
 
 		expect(await screen.findByText('Review split')).toBeInTheDocument();
 		expect(screen.getByLabelText('Paid by')).toHaveTextContent('Alice');
-		expect(
-			(screen.getByLabelText('Date') as HTMLInputElement).value
-		).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		expect((screen.getByLabelText('Date') as HTMLInputElement).value).toMatch(
+			/^\d{4}-\d{2}-\d{2}$/
+		);
 		expect(screen.getByRole('radio', { name: 'Equal' })).toBeChecked();
 		expect(screen.getAllByRole('checkbox')).toHaveLength(2);
-		expect(screen.getAllByRole('checkbox').every((item) => item.getAttribute('aria-checked') === 'true')).toBe(
-			true
-		);
+		expect(
+			screen
+				.getAllByRole('checkbox')
+				.every((item) => item.getAttribute('aria-checked') === 'true')
+		).toBe(true);
 		expect(container.querySelector('[data-slot="card"]')).toHaveClass(
 			'overflow-visible'
 		);
@@ -145,7 +177,9 @@ describe('add expense route', () => {
 			expect.objectContaining({ signal: expect.any(AbortSignal) })
 		);
 		await waitFor(() =>
-			expect(mocks.accounting.refreshAfterExpenseMutation).toHaveBeenCalledOnce()
+			expect(
+				mocks.accounting.refreshAfterExpenseMutation
+			).toHaveBeenCalledOnce()
 		);
 		expect(mocks.goto).toHaveBeenCalledWith(
 			`/groups/${groupDetailFixture.group.id}?view=activity`,
@@ -179,7 +213,7 @@ describe('add expense route', () => {
 				'Settled could not save this expense. Check the form and try again.'
 			)
 		).toBeInTheDocument();
-		expect(mocks.groupDetail.refreshDetail).toHaveBeenCalledOnce();
+		expect(mocks.groupDetail.refreshDetail).toHaveBeenCalledTimes(2);
 		expect(screen.getByRole('button', { name: 'Add expense' })).toBeEnabled();
 	});
 
@@ -199,6 +233,8 @@ describe('add expense route', () => {
 				'Your active account is not a member of this group. Reload before adding an expense.'
 			)
 		).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Add expense' })).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole('button', { name: 'Add expense' })
+		).not.toBeInTheDocument();
 	});
 });

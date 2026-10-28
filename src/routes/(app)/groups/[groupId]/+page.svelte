@@ -132,6 +132,14 @@
 			noScroll: true,
 			keepFocus: true
 		});
+
+		const requests: Promise<unknown>[] = [groupDetail.refreshDetail()];
+		if (view === 'balances') {
+			requests.push(accounting.refreshSettlements());
+		} else if (view === 'activity') {
+			requests.push(accounting.refreshExpenses(), accounting.refreshRepayments());
+		}
+		await Promise.allSettled(requests);
 	}
 
 	function panelStatus(
